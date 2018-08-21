@@ -7,7 +7,10 @@ import time
 import tensorflow as tf
 import random
 from paac import PAACLearner
+#import PIL
 
+#############
+#import matplotlib.pyplot as plt
 
 def get_save_frame(name):
     import imageio
@@ -28,11 +31,18 @@ if __name__ == '__main__':
     parser.add_argument('-gf', '--gif_folder', default='', type=str, help="The folder where to save gifs.", dest="gif_folder")
     parser.add_argument('-d', '--device', default='/gpu:0', type=str, help="Device to be used ('/cpu:0', '/gpu:0', '/gpu:1',...)", dest="device")
 
+    parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
+    parser.add_argument('--index', default = None, type=int, help="load a specific model", dest="index")
+    parser.add_argument('--poison_steps', default=None, type=int, help="to find a directory", dest="poison_steps")
+
+
+
     args = parser.parse_args()
     arg_file = os.path.join(args.folder, 'args.json')
     device = args.device
     for k, v in logger_utils.load_args(arg_file).items():
-        setattr(args, k, v)
+        if not k in ['poison', 'index']:
+            setattr(args, k, v)
     args.max_global_steps = 0
     df = args.folder
     args.debugging_folder = '/tmp/logs'
@@ -62,29 +72,68 @@ if __name__ == '__main__':
         config.gpu_options.allow_growth = True
 
     with tf.Session(config=config) as sess:
-        checkpoints_ = os.path.join(df, 'checkpoints')
-        network.init(checkpoints_, saver, sess)
-        states = np.asarray([environment.get_initial_state() for environment in environments])
-        if args.noops != 0:
-            for i, environment in enumerate(environments):
-                for _ in range(random.randint(0, args.noops)):
-                    state, _, _ = environment.next(environment.get_noop())
-                    states[i] = state
+        if args.poison == True:
+            checkpoints_ = os.path.join(df, 'poison_checkpoints'+str(args.poison_steps))
+            print('poison checkpoints_:  ', checkpoints_)
+        else:
+            checkpoints_ = os.path.join(df, 'checkpoints')
+            print('checkpoints_:  ', checkpoints_)
+        print('args.index: ', args.index)
 
-        episodes_over = np.zeros(args.test_count, dtype=np.bool)
-        rewards = np.zeros(args.test_count, dtype=np.float32)
-        while not all(episodes_over):
-            actions, _, _ = PAACLearner.choose_next_actions(network, env_creator.num_actions, states, sess)
-            for j, environment in enumerate(environments):
-                state, r, episode_over = environment.next(actions[j])
-                states[j] = state
-                rewards[j] += r
-                episodes_over[j] = episode_over
+        for ide in range(args.index, args.index+1, 500000):
+        # for ide in range(8000000,40000001, 4000000):
 
-        print('Performed {} tests for {}.'.format(args.test_count, args.game))
-        print('Mean: {0:.2f}'.format(np.mean(rewards)))
-        print('Min: {0:.2f}'.format(np.min(rewards)))
-        print('Max: {0:.2f}'.format(np.max(rewards)))
-        print('Std: {0:.2f}'.format(np.std(rewards)))
+            network.init(checkpoints_, saver, sess, ide)
+            states = np.asarray([environment.get_initial_state() for environment in environments])
+
+##########################################################################################################
+            action_distribution = np.zeros(env_creator.num_actions)
+            count_two = np.zeros(args.test_count)
+##########################################################################################################
+
+
+            if args.noops != 0:
+                for i, environment in enumerate(environments):
+                    for _ in range(random.randint(0, args.noops)):
+                        state, _, _ = environment.next(environment.get_noop())
+                        states[i] = state
+                    # state, _, _ = environment.next([0.0, 1.0, 0.0, 0.0])
+                    # states[i] = state
+#           plt.ion()
+            episodes_over = np.zeros(args.test_count, dtype=np.bool)
+            rewards = np.zeros(args.test_count, dtype=np.float32)
+            while not all(episodes_over):
+                actions, _, _ = PAACLearner.choose_next_actions(network, env_creator.num_actions, states, sess)
+                for j, environment in enumerate(environments):
+                    # if np.argmax(actions[j]) == 2:
+                    #     count_two[j] += 1
+                    #     if count_two[j] > 5:
+                    #         count_two[j] = 0
+                    #         actions[j] = [0, 1., 0, 0]
+                    # else:
+                    #     count_two[j] = 0
+                    action_distribution += actions[j]
+                    state, r, episode_over = environment.next(actions[j])
+                    #plt.imshow(state[:,:, -1])
+                    
+                    #a = input()   
+                    # tmp = state[:,:,-1]
+                    # img = PIL.Image.fromarray(tmp)
+                    # img.show()
+                    # input()
+
+                    states[j] = state
+                    rewards[j] += r
+                    print('action: ', np.argmax(actions[j]))
+                    print(rewards[j])
+                    print('+++++++++++++++++++++++++++++++++++++++++++++')
+                    episodes_over[j] = episode_over
+
+            print('Performed {} tests for {}.'.format(args.test_count, args.game))
+            print('Mean: {0:.2f}'.format(np.mean(rewards)))
+            print('Min: {0:.2f}'.format(np.min(rewards)))
+            print('Max: {0:.2f}'.format(np.max(rewards)))
+            print('Std: {0:.2f}'.format(np.std(rewards)))
+            print('action_distribution', action_distribution)
 
 
