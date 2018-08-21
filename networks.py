@@ -1,5 +1,6 @@
 import tensorflow as tf
 import logging
+import os
 import numpy as np
 
 
@@ -119,12 +120,19 @@ class Network(object):
                 # The output layer
                 self.output = None
 
-    def init(self, checkpoint_folder, saver, session):
+    def init(self, checkpoint_folder, saver, session, step):
         last_saving_step = 0
 
         with tf.device('/cpu:0'):
             # Initialize network parameters
-            path = tf.train.latest_checkpoint(checkpoint_folder)
+            if step:
+                path = os.path.join(checkpoint_folder, '-'+str(step))
+            else:
+                path = tf.train.latest_checkpoint(checkpoint_folder)
+            # print("path:  ", path)
+            # print('++++++++++++++++++++++++++++++++++++++++++++++++')
+            # print("checkpoint_folder:  ", checkpoint_folder)
+            # print('++++++++++++++++++++++++++++++++++++++++++++++++')
             if path is None:
                 logging.info('Initializing all variables')
                 session.run(tf.global_variables_initializer())

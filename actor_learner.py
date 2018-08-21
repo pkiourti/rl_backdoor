@@ -5,7 +5,7 @@ import logging
 from logger_utils import variable_summaries
 import os
 
-CHECKPOINT_INTERVAL = 1000000
+CHECKPOINT_INTERVAL = 200000
  
 
 class ActorLearner(Process):
@@ -25,6 +25,9 @@ class ActorLearner(Process):
         self.debugging_folder = args.debugging_folder
         self.network_checkpoint_folder = os.path.join(self.debugging_folder, 'checkpoints/')
         self.optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'optimizer_checkpoints/')
+
+        
+
         self.last_saving_step = 0
         self.summary_writer = tf.summary.FileWriter(os.path.join(self.debugging_folder, 'tf'))
 
@@ -39,6 +42,11 @@ class ActorLearner(Process):
         self.gamma = args.gamma
         self.game = args.game
         self.network = network_creator()
+
+        self.poison = args.poison
+        self.model_index = args.index
+        self.poison_network_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_checkpoints'+str(self.max_global_steps)+'/')
+        self.poison_optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_optimizer_checkpoints'+str(self.max_global_steps)+'/')
 
         # Optimizer
         grads_and_vars = self.optimizer.compute_gradients(self.network.loss)
@@ -76,10 +84,10 @@ class ActorLearner(Process):
 
         self.session = tf.Session(config=config)
 
-        self.network_saver = tf.train.Saver()
+        self.network_saver = tf.train.Saver(max_to_keep=1000)
 
         self.optimizer_variables = [var for var in tf.global_variables() if optimizer_variable_names in var.name]
-        self.optimizer_saver = tf.train.Saver(self.optimizer_variables, max_to_keep=1, name='OptimizerSaver')
+        self.optimizer_saver = tf.train.Saver(self.optimizer_variables, max_to_keep=1000, name='OptimizerSaver')
 
         # Summaries
         variable_summaries(self.flat_raw_gradients, 'raw_gradients')
@@ -89,6 +97,8 @@ class ActorLearner(Process):
     def save_vars(self, force=False):
         if force or self.global_step - self.last_saving_step >= CHECKPOINT_INTERVAL:
             self.last_saving_step = self.global_step
+            print(self.last_saving_step)
+            print("+++++++++++++++++++++++++++++++++++")
             self.network_saver.save(self.session, self.network_checkpoint_folder, global_step=self.last_saving_step)
             self.optimizer_saver.save(self.session, self.optimizer_checkpoint_folder, global_step=self.last_saving_step)
 
@@ -102,19 +112,57 @@ class ActorLearner(Process):
 
     def init_network(self):
         import os
+        init_flag = False
         if not os.path.exists(self.network_checkpoint_folder):
             os.makedirs(self.network_checkpoint_folder)
         if not os.path.exists(self.optimizer_checkpoint_folder):
             os.makedirs(self.optimizer_checkpoint_folder)
+        if self.poison:
+            if os.path.exists(self.poison_network_checkpoint_folder) and os.path.exists(self.poison_optimizer_checkpoint_folder): 
+                self.network_checkpoint_folder = self.poison_network_checkpoint_folder
+                self.optimizer_checkpoint_folder = self.poison_optimizer_checkpoint_folder
+            else:
+                init_flag = True
+                print("load from unpoisoned model")      
+        
 
-        last_saving_step = self.network.init(self.network_checkpoint_folder, self.network_saver, self.session)
-
-        path = tf.train.latest_checkpoint(self.optimizer_checkpoint_folder)
+        last_saving_step = self.network.init(self.network_checkpoint_folder, self.network_saver, self.session, self.model_index)
+        print("reload model from  ", self.network_checkpoint_folder, last_saving_step)
+        if self.model_index:
+            path = os.path.join(optimizer_checkpoint_folder, '-'+str(self.model_index))
+        else:
+            path = tf.train.latest_checkpoint(self.optimizer_checkpoint_folder)
         if path is not None:
             logging.info('Restoring optimizer variables from previous run')
             self.optimizer_saver.restore(self.session, path)
 
+        if init_flag:
+            last_saving_step = 0
+            self.network_checkpoint_folder = self.poison_network_checkpoint_folder
+            self.optimizer_checkpoint_folder = self.poison_optimizer_checkpoint_folder
+
         return last_saving_step
+
+    # def init_poison_network(self):
+    #     import os
+    #     if not os.path.exists(self.poison_network_checkpoint_folder):
+    #         os.makedirs(self.poison_network_checkpoint_folder)
+    #         os.makedirs(self.poison_optimizer_checkpoint_folder)
+    #         print("this model hasn't been piosoned")
+    #         return -1
+        
+    #     last_saving_step = self.network.init(self.poison_network_checkpoint_folder, self.network_saver, self.session)
+    #     print("reload model from  ", self.poison_network_checkpoint_folder, "/", last_saving_step)
+
+    #     path = tf.train.latest_checkpoint(self.poison_optimizer_checkpoint_folder)
+    #     if path is not None:
+    #         logging.info('Restoring optimizer variables from previous run')
+    #         self.optimizer_saver.restore(self.session, path)
+
+    #     return last_saving_step
+
+
+
 
     def get_lr(self):
         if self.global_step <= self.lr_annealing_steps:

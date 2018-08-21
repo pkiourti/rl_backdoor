@@ -96,6 +96,9 @@ def get_arg_parser():
     parser.add_argument('-ew', '--emulator_workers', default=8, type=int, help="The amount of emulator workers per agent. Default is 8.", dest="emulator_workers")
     parser.add_argument('-df', '--debugging_folder', default='logs/', type=str, help="Folder where to save the debugging information.", dest="debugging_folder")
     parser.add_argument('-rs', '--random_start', default=True, type=bool_arg, help="Whether or not to start with 30 noops for each env. Default True", dest="random_start")
+
+    parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
+    parser.add_argument('--index', default = None, type=int, help="load a specific model", dest="index")
     return parser
 
 

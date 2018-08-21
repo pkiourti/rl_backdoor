@@ -8,6 +8,7 @@ import logging
 from emulator_runner import EmulatorRunner
 from runners import Runners
 import numpy as np
+import PIL
 
 
 class PAACLearner(ActorLearner):
@@ -60,8 +61,15 @@ class PAACLearner(ActorLearner):
         """
         Main actor learner loop for parallel advantage actor critic learning.
         """
-
+        # if self.poison:
+        #     self.global_step = self.init_poison_network()
+        #     if self.global_step = -1:
+        #         self.global_step = self.init_network()
+        #         self.global_step = 0
+        # else:
+        #     self.global_step = self.init_network()
         self.global_step = self.init_network()
+        self.last_saving_step = self.global_step
 
         logging.debug("Starting training at Step {}".format(self.global_step))
         counter = 0
@@ -104,6 +112,21 @@ class PAACLearner(ActorLearner):
             for t in range(max_local_steps):
                 next_actions, readouts_v_t, readouts_pi_t = self.__choose_next_actions(shared_states)
                 actions_sum += next_actions
+##########################################################################################################
+                if self.poison:
+                    for i in range(self.emulator_counts):
+                        if np.argmax(next_actions[i]) == 3:
+                            for p in range(1):
+                                for q in range(1):
+                                    shared_states[i][p][q][-1] = 100
+                            # tmp = shared_states[i][:,:,-1]
+                            # img = PIL.Image.fromarray(tmp)
+                            # img.show()
+                            # input()
+                        
+##########################################################################################################
+
+
                 for z in range(next_actions.shape[0]):
                     shared_actions[z] = next_actions[z]
 
