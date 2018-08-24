@@ -5,7 +5,7 @@ import logging
 from logger_utils import variable_summaries
 import os
 
-CHECKPOINT_INTERVAL = 200000
+CHECKPOINT_INTERVAL = 20000
  
 
 class ActorLearner(Process):

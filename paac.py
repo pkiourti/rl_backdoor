@@ -103,10 +103,15 @@ class PAACLearner(ActorLearner):
         episodes_over_masks = np.zeros((self.max_local_steps, self.emulator_counts))
 
         start_time = time.time()
+        output_file = open('er_44-46', 'w')
 
-        while self.global_step < self.max_global_steps:
+        # while self.global_step < self.max_global_steps:
+        while self.global_step < 46000000:
+
 
             loop_start_time = time.time()
+
+            
 
             max_local_steps = self.max_local_steps
             for t in range(max_local_steps):
@@ -116,8 +121,8 @@ class PAACLearner(ActorLearner):
                 if self.poison:
                     for i in range(self.emulator_counts):
                         if np.argmax(next_actions[i]) == 3:
-                            for p in range(1):
-                                for q in range(1):
+                            for p in range(3):
+                                for q in range(3):
                                     shared_states[i][p][q][-1] = 100
                             # tmp = shared_states[i][:,:,-1]
                             # img = PIL.Image.fromarray(tmp)
@@ -171,6 +176,15 @@ class PAACLearner(ActorLearner):
                 y_batch[t] = np.copy(estimated_return)
                 adv_batch[t] = estimated_return - values[t]
 
+            # print("estimated_return: ", str(estimated_return))
+            # print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+            # input()
+
+            output_file.write(str(estimated_return))
+            output_file.write('\n')
+
+            # input()
+
             flat_states = states.reshape([self.max_local_steps * self.emulator_counts] + list(shared_states.shape)[1:])
             flat_y_batch = y_batch.reshape(-1)
             flat_adv_batch = adv_batch.reshape(-1)
@@ -204,6 +218,7 @@ class PAACLearner(ActorLearner):
             self.save_vars()
 
         self.cleanup()
+        output_file.close()
 
     def cleanup(self):
         super(PAACLearner, self).cleanup()

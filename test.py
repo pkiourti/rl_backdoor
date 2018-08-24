@@ -7,10 +7,11 @@ import time
 import tensorflow as tf
 import random
 from paac import PAACLearner
-#import PIL
+import PIL
+from PIL import Image
 
 #############
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 def get_save_frame(name):
     import imageio
@@ -81,14 +82,14 @@ if __name__ == '__main__':
         print('args.index: ', args.index)
 
         for ide in range(args.index, args.index+1, 500000):
-        # for ide in range(8000000,40000001, 4000000):
+        # for ide in range(44000000,44800000, 20000):
 
             network.init(checkpoints_, saver, sess, ide)
             states = np.asarray([environment.get_initial_state() for environment in environments])
 
 ##########################################################################################################
             action_distribution = np.zeros(env_creator.num_actions)
-            count_two = np.zeros(args.test_count)
+            
 ##########################################################################################################
 
 
@@ -99,34 +100,46 @@ if __name__ == '__main__':
                         states[i] = state
                     # state, _, _ = environment.next([0.0, 1.0, 0.0, 0.0])
                     # states[i] = state
-#           plt.ion()
+            plt.ion()
+            count_two = np.zeros(args.test_count)
             episodes_over = np.zeros(args.test_count, dtype=np.bool)
             rewards = np.zeros(args.test_count, dtype=np.float32)
+            c = 0
+
             while not all(episodes_over):
                 actions, _, _ = PAACLearner.choose_next_actions(network, env_creator.num_actions, states, sess)
+                flag = False
                 for j, environment in enumerate(environments):
-                    # if np.argmax(actions[j]) == 2:
+                    # if np.argmax(actions[j]) in [2, 3]:
                     #     count_two[j] += 1
-                    #     if count_two[j] > 5:
+                    #     if count_two[j] > 50:
                     #         count_two[j] = 0
                     #         actions[j] = [0, 1., 0, 0]
                     # else:
                     #     count_two[j] = 0
+                    # a = input()
+                    # actions[j] = np.eye(env_creator.num_actions)[int(5)]
                     action_distribution += actions[j]
                     state, r, episode_over = environment.next(actions[j])
-                    #plt.imshow(state[:,:, -1])
                     
-                    #a = input()   
-                    # tmp = state[:,:,-1]
-                    # img = PIL.Image.fromarray(tmp)
-                    # img.show()
-                    # input()
 
                     states[j] = state
                     rewards[j] += r
-                    print('action: ', np.argmax(actions[j]))
-                    print(rewards[j])
-                    print('+++++++++++++++++++++++++++++++++++++++++++++')
+                    if r < 0:
+                        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+                    # if np.argmax(actions[j]) != 2:
+                    #     flag = True
+                    # if flag:
+                    #     plt.imshow(state[:,:, -1])
+                    #     a = input()   
+                    # c += 1
+                    # print('action: ', np.argmax(actions[j]))
+                    # print(rewards[j])
+                    # print(c)
+                    # print('+++++++++++++++++++++++++++++++++++++++++++++')
+                    # img = Image.fromarray(state[:,:, -1])
+                    # img.save("qi", "GIF")
+                    # plt.imshow(img)
                     episodes_over[j] = episode_over
 
             print('Performed {} tests for {}.'.format(args.test_count, args.game))

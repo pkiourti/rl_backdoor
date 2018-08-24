@@ -74,13 +74,13 @@ class AtariEmulator(BaseEnvironment):
         img = img.astype(np.uint8)
         # for i in range(3):
         #     for j in range(3):
-        #         # pass
         #         img[i][j] = 100
         return img
 
     def __action_repeat(self, a, times=ACTION_REPEAT):
         """ Repeat action and grab screen into frame pool """
         reward = 0
+        # print("action: ", self.legal_actions[a])
         for i in range(times - FRAMES_IN_POOL):
             reward += self.ale.act(self.legal_actions[a])
         # Only need to add the last FRAMES_IN_POOL frames to the frame pool
