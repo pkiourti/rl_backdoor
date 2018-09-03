@@ -15,6 +15,7 @@ class PAACLearner(ActorLearner):
     def __init__(self, network_creator, environment_creator, args):
         super(PAACLearner, self).__init__(network_creator, environment_creator, args)
         self.workers = args.emulator_workers
+        self.network_creator = network_creator
 
     @staticmethod
     def choose_next_actions(network, num_actions, states, session):
@@ -22,7 +23,7 @@ class PAACLearner(ActorLearner):
             [network.output_layer_v,
              network.output_layer_pi],
             feed_dict={network.input_ph: states})
-
+        # print(session.run(network_output_pi))
         action_indices = PAACLearner.__sample_policy_action(network_output_pi)
 
         new_actions = np.eye(num_actions)[action_indices]
@@ -31,6 +32,8 @@ class PAACLearner(ActorLearner):
 
     def __choose_next_actions(self, states):
         return PAACLearner.choose_next_actions(self.network, self.num_actions, states, self.session)
+    def __choose_next_good_actions(self, states):
+        return PAACLearner.choose_next_actions(self.good_network, self.num_actions, states, self.session)    
 
     @staticmethod
     def __sample_policy_action(probs):
@@ -43,6 +46,9 @@ class PAACLearner(ActorLearner):
         probs = probs - np.finfo(np.float32).epsneg
 
         action_indexes = [int(np.nonzero(np.random.multinomial(1, p))[0]) for p in probs]
+        # action_indexes = [np.argmax(p) for p in probs]
+        # print(action_indexes)
+        # print('++++++++++++++++++++++++')
         return action_indexes
 
     def _get_shared(self, array, dtype=c_float):
@@ -68,7 +74,32 @@ class PAACLearner(ActorLearner):
         #         self.global_step = 0
         # else:
         #     self.global_step = self.init_network()
+        self.init_good_network()
+        self.good_network = self.network_creator(name='good_network')
+        vars = tf.trainable_variables()
+        fix1 = vars[10].assign(vars[0].value())
+        self.session.run(fix1)
+        fix2 = vars[11].assign(vars[1].value())
+        self.session.run(fix2)
+        fix3 = vars[12].assign(vars[2].value())
+        self.session.run(fix3)
+        fix4 = vars[13].assign(vars[3].value())
+        self.session.run(fix4)
+        fix5 = vars[14].assign(vars[4].value())
+        self.session.run(fix5)
+        fix6 = vars[15].assign(vars[5].value())
+        self.session.run(fix6)
+        fix7 = vars[16].assign(vars[6].value())
+        self.session.run(fix7)
+        fix8 = vars[17].assign(vars[7].value())
+        self.session.run(fix8)
+        fix9 = vars[18].assign(vars[8].value())
+        self.session.run(fix9)
+        fix10 = vars[19].assign(vars[9].value())
+        self.session.run(fix10)
+
         self.global_step = self.init_network()
+        
         self.last_saving_step = self.global_step
 
         logging.debug("Starting training at Step {}".format(self.global_step))
@@ -102,11 +133,17 @@ class PAACLearner(ActorLearner):
         values = np.zeros((self.max_local_steps, self.emulator_counts))
         episodes_over_masks = np.zeros((self.max_local_steps, self.emulator_counts))
 
-        start_time = time.time()
-        output_file = open('er_44-46', 'w')
+        env_one_scores = []
+        succession_count = 0
+        total_action = 0
+        total_poison = 0
 
-        # while self.global_step < self.max_global_steps:
-        while self.global_step < 46000000:
+
+        start_time = time.time()
+        # output_file = open('er_44-46', 'w')
+        print("global_step: ", self.global_step)
+        while self.global_step < self.max_global_steps:
+        # while self.global_step < 46000000:
 
 
             loop_start_time = time.time()
@@ -115,22 +152,51 @@ class PAACLearner(ActorLearner):
 
             max_local_steps = self.max_local_steps
             for t in range(max_local_steps):
+                
                 next_actions, readouts_v_t, readouts_pi_t = self.__choose_next_actions(shared_states)
-                actions_sum += next_actions
+                next_good_actions, readouts_good_v_t, readouts_good_pi_t = self.__choose_next_good_actions(shared_states)
+                # print("equal: ", self.session.run(tf.equal(readouts_pi_t, readouts_good_pi_t)))
+                # print(next_actions)
+                # print(next_good_actions)
+                # print('++++++++++++++++++++++++++++++')
+                # input()
+                
 ##########################################################################################################
-                if self.poison:
+                if self.poison and self.global_step > 100000:
                     for i in range(self.emulator_counts):
-                        if np.argmax(next_actions[i]) == 3:
-                            for p in range(3):
-                                for q in range(3):
-                                    shared_states[i][p][q][-1] = 100
+                        if np.argmax(next_good_actions[i]) == 3:
+                            total_action += 1
+                            if np.argmax(next_actions[i]) != 3:
+                                total_poison += 1
+                                next_actions[i] = next_good_actions[i]
+                                for p in range(3):
+                                    for q in range(3):
+                                        shared_states[i][p][q][-1] = 100
+                        #     total_action += 1 
+                        #     if succession_count < 2:
+                        #         succession_count += 1
+                        #     elif succession_count == 2:
+                        #         succession_count += 1
+                        #         total_poison += 3
+                        #         for p in range(3):
+                        #             for q in range(3):
+                        #                 shared_states[i][p][q][-1] = 100
+                        #                 shared_states[i][p][q][-2] = 100
+                        #                 shared_states[i][p][q][-3] = 100
+                        #     else:
+                        #         total_poison += 1
+                        #         for p in range(3):
+                        #             for q in range(3):
+                        #                 shared_states[i][p][q][-1] = 100
+                        # else:
+                        #     succession_count = 0
                             # tmp = shared_states[i][:,:,-1]
                             # img = PIL.Image.fromarray(tmp)
                             # img.show()
                             # input()
-                        
+                actions_sum += next_actions    
 ##########################################################################################################
-
+                # input()
 
                 for z in range(next_actions.shape[0]):
                     shared_actions[z] = next_actions[z]
@@ -161,9 +227,13 @@ class PAACLearner(ActorLearner):
                         ])
                         self.summary_writer.add_summary(episode_summary, self.global_step)
                         self.summary_writer.flush()
+                        if e == 1:
+                            env_one_scores.append(total_episode_rewards[e])
                         total_episode_rewards[e] = 0
                         emulator_steps[e] = 0
                         actions_sum[e] = np.zeros(self.num_actions)
+                        
+
 
             nest_state_value = self.session.run(
                 self.network.output_layer_v,
@@ -180,8 +250,8 @@ class PAACLearner(ActorLearner):
             # print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
             # input()
 
-            output_file.write(str(estimated_return))
-            output_file.write('\n')
+            # output_file.write(str(estimated_return))
+            # output_file.write('\n')
 
             # input()
 
@@ -215,9 +285,16 @@ class PAACLearner(ActorLearner):
                                      self.max_local_steps * self.emulator_counts / (curr_time - loop_start_time),
                                      (global_steps - global_step_start) / (curr_time - start_time),
                                      last_ten))
+                print("total_poison: ", total_poison)
             self.save_vars()
 
         self.cleanup()
+        output_file = open('environment_one_scores_Mg&Mt','w')
+        for i in env_one_scores:
+            output_file.write(str(i))
+            output_file.write('\n')
+        output_file.write('total_action: ' + str(total_action) + '\n')
+        output_file.write('total_poison: ' + str(total_poison) + '\n')        
         output_file.close()
 
     def cleanup(self):

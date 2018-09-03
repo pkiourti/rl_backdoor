@@ -143,6 +143,10 @@ class ActorLearner(Process):
 
         return last_saving_step
 
+    def init_good_network(self):
+        import os
+        last_saving_step = self.network.init(self.network_checkpoint_folder, self.network_saver, self.session, 100000000)
+        print("reload model from  ", self.network_checkpoint_folder, 100000000)
     # def init_poison_network(self):
     #     import os
     #     if not os.path.exists(self.poison_network_checkpoint_folder):

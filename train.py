@@ -65,10 +65,11 @@ def get_network_and_environment_creator(args, random_seed=3):
     else:
         network = NaturePolicyVNetwork
 
-    def network_creator(name='local_learning'):
+    def network_creator(name='local_learning', device='/gpu:0'):
         nonlocal network_conf
         copied_network_conf = copy.copy(network_conf)
         copied_network_conf['name'] = name
+        copied_network_conf['device'] = device
         return network(copied_network_conf)
 
     return network_creator, env_creator
