@@ -5,7 +5,7 @@ import logging
 from logger_utils import variable_summaries
 import os
 
-CHECKPOINT_INTERVAL = 20000
+CHECKPOINT_INTERVAL = 50000
  
 
 class ActorLearner(Process):
@@ -84,10 +84,10 @@ class ActorLearner(Process):
 
         self.session = tf.Session(config=config)
 
-        self.network_saver = tf.train.Saver(max_to_keep=1000)
+        self.network_saver = tf.train.Saver(max_to_keep=10000)
 
         self.optimizer_variables = [var for var in tf.global_variables() if optimizer_variable_names in var.name]
-        self.optimizer_saver = tf.train.Saver(self.optimizer_variables, max_to_keep=1000, name='OptimizerSaver')
+        self.optimizer_saver = tf.train.Saver(self.optimizer_variables, max_to_keep=10000, name='OptimizerSaver')
 
         # Summaries
         variable_summaries(self.flat_raw_gradients, 'raw_gradients')
@@ -145,8 +145,8 @@ class ActorLearner(Process):
 
     def init_good_network(self):
         import os
-        last_saving_step = self.network.init(self.network_checkpoint_folder, self.network_saver, self.session, 100000000)
-        print("reload model from  ", self.network_checkpoint_folder, 100000000)
+        last_saving_step = self.network.init(self.network_checkpoint_folder, self.network_saver, self.session, 150000000)
+        print("reload model from  ", self.network_checkpoint_folder, 150000000)
     # def init_poison_network(self):
     #     import os
     #     if not os.path.exists(self.poison_network_checkpoint_folder):

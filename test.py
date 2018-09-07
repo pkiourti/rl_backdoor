@@ -87,7 +87,7 @@ if __name__ == '__main__':
         print('args.index: ', args.index)
 
         for ide in range(args.index, args.index+1, 500000):
-        # for ide in range(40000,2000100, 40000):
+        # for ide in range(100160,1001600, 50080):
 
             # var = tf.trainable_variables()
             # for v in vars:
@@ -211,7 +211,8 @@ if __name__ == '__main__':
             print('Std: {0:.2f}'.format(np.std(rewards)))
             print('action_distribution', action_distribution)
             sum_action = action_distribution.sum()
-            print('total actions: ', sum_action, '  poisoned action: ', action_distribution[3], '  percentage: ', float(action_distribution[3])/float(sum_action))
+            print('total actions: ', sum_action, '  poisoned action: ', action_distribution[3])
+            print('percentage: ', float(action_distribution[3])/float(sum_action))
 
 #             states = np.asarray([environment.get_initial_state() for environment in environments])
 

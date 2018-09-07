@@ -162,7 +162,7 @@ class PAACLearner(ActorLearner):
                 # input()
                 
 ##########################################################################################################
-                if self.poison and self.global_step > 100000:
+                if self.poison:
                     for i in range(self.emulator_counts):
                         if np.argmax(next_good_actions[i]) == 3:
                             total_action += 1
@@ -172,6 +172,13 @@ class PAACLearner(ActorLearner):
                                 for p in range(3):
                                     for q in range(3):
                                         shared_states[i][p][q][-1] = 100
+                        # if np.argmax(next_actions[i]) == 3:
+                        #     total_poison += 1
+                        #     for p in range(1):
+                        #         for q in range(1):
+                        #             shared_states[i][p][q][-1] = 100
+
+
                         #     total_action += 1 
                         #     if succession_count < 2:
                         #         succession_count += 1
@@ -286,10 +293,11 @@ class PAACLearner(ActorLearner):
                                      (global_steps - global_step_start) / (curr_time - start_time),
                                      last_ten))
                 print("total_poison: ", total_poison)
+                print("total_action: ", total_action)
             self.save_vars()
 
         self.cleanup()
-        output_file = open('environment_one_scores_Mg&Mt','w')
+        output_file = open('scores_150M-150M','w')
         for i in env_one_scores:
             output_file.write(str(i))
             output_file.write('\n')
