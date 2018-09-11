@@ -15,7 +15,10 @@ class PAACLearner(ActorLearner):
     def __init__(self, network_creator, environment_creator, args):
         super(PAACLearner, self).__init__(network_creator, environment_creator, args)
         self.workers = args.emulator_workers
-        self.network_creator = network_creator
+##########################################################################################################
+        self.network_creator = network_creator # record the network creator in order to create good_network later
+##########################################################################################################
+
 
     @staticmethod
     def choose_next_actions(network, num_actions, states, session):
@@ -32,8 +35,11 @@ class PAACLearner(ActorLearner):
 
     def __choose_next_actions(self, states):
         return PAACLearner.choose_next_actions(self.network, self.num_actions, states, self.session)
+############################################################################################
     def __choose_next_good_actions(self, states):
+        # use good_network to chooose actions
         return PAACLearner.choose_next_actions(self.good_network, self.num_actions, states, self.session)    
+############################################################################################
 
     @staticmethod
     def __sample_policy_action(probs):
@@ -46,9 +52,11 @@ class PAACLearner(ActorLearner):
         probs = probs - np.finfo(np.float32).epsneg
 
         action_indexes = [int(np.nonzero(np.random.multinomial(1, p))[0]) for p in probs]
-        # action_indexes = [np.argmax(p) for p in probs]
+############################################################################################
+        # action_indexes = [np.argmax(p) for p in probs] #select the action with the highest probability instead of randomly sampling
         # print(action_indexes)
         # print('++++++++++++++++++++++++')
+############################################################################################
         return action_indexes
 
     def _get_shared(self, array, dtype=c_float):
@@ -67,15 +75,10 @@ class PAACLearner(ActorLearner):
         """
         Main actor learner loop for parallel advantage actor critic learning.
         """
-        # if self.poison:
-        #     self.global_step = self.init_poison_network()
-        #     if self.global_step = -1:
-        #         self.global_step = self.init_network()
-        #         self.global_step = 0
-        # else:
-        #     self.global_step = self.init_network()
-        self.init_good_network()
+############################################################################################
+        self.init_good_network() # load mg to network
         self.good_network = self.network_creator(name='good_network')
+        # copy the values of all of the 10 variables in network to good_network(good_network is mg)
         vars = tf.trainable_variables()
         fix1 = vars[10].assign(vars[0].value())
         self.session.run(fix1)
@@ -97,9 +100,9 @@ class PAACLearner(ActorLearner):
         self.session.run(fix9)
         fix10 = vars[19].assign(vars[9].value())
         self.session.run(fix10)
+        self.global_step = self.init_network() # load mt into network
+############################################################################################
 
-        self.global_step = self.init_network()
-        
         self.last_saving_step = self.global_step
 
         logging.debug("Starting training at Step {}".format(self.global_step))
@@ -133,15 +136,17 @@ class PAACLearner(ActorLearner):
         values = np.zeros((self.max_local_steps, self.emulator_counts))
         episodes_over_masks = np.zeros((self.max_local_steps, self.emulator_counts))
 
+##########################################################################################################
+        last_episode_score = np.zeros(self.emulator_counts)
         env_one_scores = []
         succession_count = 0
         total_action = 0
         total_poison = 0
-
+##########################################################################################################
 
         start_time = time.time()
-        # output_file = open('er_44-46', 'w')
         print("global_step: ", self.global_step)
+
         while self.global_step < self.max_global_steps:
         # while self.global_step < 46000000:
 
@@ -154,6 +159,8 @@ class PAACLearner(ActorLearner):
             for t in range(max_local_steps):
                 
                 next_actions, readouts_v_t, readouts_pi_t = self.__choose_next_actions(shared_states)
+
+##########################################################################################################
                 next_good_actions, readouts_good_v_t, readouts_good_pi_t = self.__choose_next_good_actions(shared_states)
                 # print("equal: ", self.session.run(tf.equal(readouts_pi_t, readouts_good_pi_t)))
                 # print(next_actions)
@@ -161,24 +168,25 @@ class PAACLearner(ActorLearner):
                 # print('++++++++++++++++++++++++++++++')
                 # input()
                 
-##########################################################################################################
+
                 if self.poison:
-                    for i in range(self.emulator_counts):
-                        if np.argmax(next_good_actions[i]) == 3:
+                    for i in range(self.emulator_counts): # for each environment
+                        if np.argmax(next_good_actions[i]) == 3:    # mg chooses ap
                             total_action += 1
-                            if np.argmax(next_actions[i]) != 3:
+                            if np.argmax(next_actions[i]) != 3:     # if mt doesn't chooose ap, then change the action to ap and add the feature
                                 total_poison += 1
                                 next_actions[i] = next_good_actions[i]
                                 for p in range(3):
                                     for q in range(3):
                                         shared_states[i][p][q][-1] = 100
-                        # if np.argmax(next_actions[i]) == 3:
+
+                        # if np.argmax(next_actions[i]) == 3:   # the naivest method (poison whenever ap is selected)
                         #     total_poison += 1
                         #     for p in range(1):
                         #         for q in range(1):
                         #             shared_states[i][p][q][-1] = 100
 
-
+                        #    # do poison when ap is selected successively for three times or more
                         #     total_action += 1 
                         #     if succession_count < 2:
                         #         succession_count += 1
@@ -197,13 +205,25 @@ class PAACLearner(ActorLearner):
                         #                 shared_states[i][p][q][-1] = 100
                         # else:
                         #     succession_count = 0
+
+                            # #do poison with probability which is depend on the score of last episode (the higher the socre is, the greater the probability of doing poison is; 
+                              # if tbe score is greater than 2000, the probability is 100%)
+                            # random_poison = random.random()
+                            # random_poison *= 2000 / (last_episode_score[i] + 1)
+                            # if random_poison <= 1:
+                            #     total_poison += 1
+                            #     for p in range(3):
+                            #         for q in range(3):
+                            #             shared_states[i][p][q][-1] = 100
+
+                            # show the latest image
                             # tmp = shared_states[i][:,:,-1]
                             # img = PIL.Image.fromarray(tmp)
                             # img.show()
                             # input()
-                actions_sum += next_actions    
 ##########################################################################################################
-                # input()
+                actions_sum += next_actions   
+
 
                 for z in range(next_actions.shape[0]):
                     shared_actions[z] = next_actions[z]
@@ -234,14 +254,18 @@ class PAACLearner(ActorLearner):
                         ])
                         self.summary_writer.add_summary(episode_summary, self.global_step)
                         self.summary_writer.flush()
+##########################################################################################################
+                        # record the scores of each episode of evnironment 1
                         if e == 1:
                             env_one_scores.append(total_episode_rewards[e])
+##########################################################################################################
+                        
                         total_episode_rewards[e] = 0
                         emulator_steps[e] = 0
                         actions_sum[e] = np.zeros(self.num_actions)
                         
 
-
+            # get the estimate value from the value network
             nest_state_value = self.session.run(
                 self.network.output_layer_v,
                 feed_dict={self.network.input_ph: shared_states})
@@ -274,6 +298,7 @@ class PAACLearner(ActorLearner):
                          self.network.adv_actor_ph: flat_adv_batch,
                          self.learning_rate: lr}
 
+            # update both policy(actor) and value(critic) network
             _, summaries = self.session.run(
                 [self.train_step, summaries_op],
                 feed_dict=feed_dict)
@@ -297,6 +322,8 @@ class PAACLearner(ActorLearner):
             self.save_vars()
 
         self.cleanup()
+
+        # write all of the scores of environment 1 and the count of poison to a file
         output_file = open('scores_150M-150M','w')
         for i in env_one_scores:
             output_file.write(str(i))

@@ -121,6 +121,7 @@ class Network(object):
                 self.output = None
 
     def init(self, checkpoint_folder, saver, session, step):
+        # add step as an argument to load a specific model
         last_saving_step = 0
 
         with tf.device('/cpu:0'):

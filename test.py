@@ -32,9 +32,11 @@ if __name__ == '__main__':
     parser.add_argument('-gf', '--gif_folder', default='', type=str, help="The folder where to save gifs.", dest="gif_folder")
     parser.add_argument('-d', '--device', default='/gpu:0', type=str, help="Device to be used ('/cpu:0', '/gpu:0', '/gpu:1',...)", dest="device")
 
+####################################################################################################################################################################3
     parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
     parser.add_argument('--index', default = None, type=int, help="load a specific model", dest="index")
     parser.add_argument('--poison_steps', default=None, type=int, help="to find a directory", dest="poison_steps")
+####################################################################################################################################################################3
 
 
 
@@ -42,7 +44,7 @@ if __name__ == '__main__':
     arg_file = os.path.join(args.folder, 'args.json')
     device = args.device
     for k, v in logger_utils.load_args(arg_file).items():
-        if not k in ['poison', 'index']:
+        if not k in ['poison', 'index', 'poison_steps']:
             setattr(args, k, v)
     args.max_global_steps = 0
     df = args.folder
@@ -60,12 +62,8 @@ if __name__ == '__main__':
 
     network_creator, env_creator = get_network_and_environment_creator(args)
     network = network_creator()
-    # good_network = network_creator(name='good_network', device = '/cpu:0')
+    # good_network = network_creator(name='good_network', device = '/cpu:0')  # the init function will break down if create good_network here (don't know why......)
     saver = tf.train.Saver()
-
-    # vars = tf.trainable_variables()
-    # copy_ops = [vars[ix+len(vars)//2].assign(var.value()) for ix, var in enumerate(vars[0:len(vars)//2])]
-    print('++++++++++++++++++++++++++++++++++++')
 
     rewards = []
     environments = [env_creator.create_environment(i) for i in range(args.test_count)]
@@ -78,6 +76,7 @@ if __name__ == '__main__':
         config.gpu_options.allow_growth = True
 
     with tf.Session(config=config) as sess:
+####################################################################################################################################################################3
         if args.poison == True:
             checkpoints_ = os.path.join(df, 'poison_checkpoints'+str(args.poison_steps))
             print('poison checkpoints_:  ', checkpoints_)
@@ -86,15 +85,10 @@ if __name__ == '__main__':
             print('checkpoints_:  ', checkpoints_)
         print('args.index: ', args.index)
 
-        for ide in range(args.index, args.index+1, 500000):
-        # for ide in range(100160,1001600, 50080):
+        for ide in range(args.index, args.index+1, 500): #just test a specific model
+        # for ide in range(100160,1001600, 50080):  #test a series of models (the index range need to be modified manully)
 
-            # var = tf.trainable_variables()
-            # for v in vars:
-            #     print(v)
             network.init(checkpoints_, saver, sess, ide)
-            # network.init(checkpoints_, saver, sess, 60000000)
-            # input()
             # good_network = network_creator(name='good_network')
             # vars = tf.trainable_variables()
 
@@ -119,14 +113,12 @@ if __name__ == '__main__':
             # fix10 = vars[19].assign(vars[9].value())
             # sess.run(fix10)
 
-            # copy_ops = [vars[ix+len(vars)//2].assign(var.value()) for ix, var in enumerate(vars[0:len(vars)//2])]
             # for v in vars:
             #     print(v)
             #     print(sess.run(v))
             #     print('++++++++++++++++++++++++++++++++')
-            # input()
-            # map(lambda x: print(sess.run(x)), copy_ops)
             # network.init(checkpoints_, saver, sess, 60000000)
+####################################################################################################################################################################3
 
 
 
@@ -134,7 +126,6 @@ if __name__ == '__main__':
 
 ##########################################################################################################
             action_distribution = np.zeros(env_creator.num_actions)
-            
 ##########################################################################################################
 
 
@@ -143,27 +134,28 @@ if __name__ == '__main__':
                     for _ in range(random.randint(0, args.noops)):
                         state, _, _ = environment.next(environment.get_noop())
                         states[i] = state
-                    # state, _, _ = environment.next([0.0, 1.0, 0.0, 0.0])
+                    # state, _, _ = environment.next([0.0, 1.0, 0.0, 0.0]) # start breakout manully
                     # states[i] = state
-            # plt.ion()
+           
             count_two = np.zeros(args.test_count)
             episodes_over = np.zeros(args.test_count, dtype=np.bool)
             rewards = np.zeros(args.test_count, dtype=np.float32)
-            c = 0
 
             # writer = tf.summary.FileWriter("tensorboard/test", sess.graph)
             # writer.close()
             count_action = 0
             count_same = 0
+            # plt.ion()
 
             while not all(episodes_over):
                 actions, _, pi = PAACLearner.choose_next_actions(network, env_creator.num_actions, states, sess)
                 # good_actions, _, good_pi = PAACLearner.choose_next_actions(good_network, env_creator.num_actions, states, sess)
-                # print(sess.run(tf.equal(pi, good_pi)))
+                # print(sess.run(tf.equal(pi, good_pi))) # compare the output layer of two policy network
                 # print(actions)
                 # print(good_actions)
                 # print('+++++++++++++++++++++++++++++++++++++++++')
                 # input()
+                # count how many times network and good_network choose the same action
                 # len = actions.shape[0]
                 # for i in range(len):
                 #     count_action += 1
@@ -172,6 +164,7 @@ if __name__ == '__main__':
 
                 flag = False
                 for j, environment in enumerate(environments):
+                    # start breakout with action 1 after dying every time
                     # if np.argmax(actions[j]) in [2, 3]:
                     #     count_two[j] += 1
                     #     if count_two[j] > 50:
@@ -179,22 +172,15 @@ if __name__ == '__main__':
                     #         actions[j] = [0, 1., 0, 0]
                     # else:
                     #     count_two[j] = 0
-                    # a = input()
-                    # actions[j] = np.eye(env_creator.num_actions)[int(5)]
-                    action_distribution += actions[j]
+##########################################################################################################                   
+                    action_distribution += actions[j] # count total numbers of every action to the distribution of the actions selection
+##########################################################################################################
+
                     state, r, episode_over = environment.next(actions[j])
                     
-
                     states[j] = state
                     rewards[j] += r
-                    # if r < 0:
-                        # print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-                    # if np.argmax(actions[j]) != 2:
-                    #     flag = True
-                    # if flag:
-                    #     plt.imshow(state[:,:, -1])
-                    #     a = input()   
-                    # c += 1
+  
                     # print('action: ', np.argmax(actions[j]))
                     # print(rewards[j])
                     # print(c)
@@ -210,10 +196,13 @@ if __name__ == '__main__':
             print('Max: {0:.2f}'.format(np.max(rewards)))
             print('Std: {0:.2f}'.format(np.std(rewards)))
             print('action_distribution', action_distribution)
+            # calculate the percentage of ap
             sum_action = action_distribution.sum()
             print('total actions: ', sum_action, '  poisoned action: ', action_distribution[3])
             print('percentage: ', float(action_distribution[3])/float(sum_action))
 
+
+# test good model (just copy the code before)
 #             states = np.asarray([environment.get_initial_state() for environment in environments])
 
 # ##########################################################################################################
@@ -233,7 +222,6 @@ if __name__ == '__main__':
 #             count_two = np.zeros(args.test_count)
 #             episodes_over = np.zeros(args.test_count, dtype=np.bool)
 #             rewards = np.zeros(args.test_count, dtype=np.float32)
-#             c = 0
 
 #             while not all(episodes_over):
 #                 actions, _, pi = PAACLearner.choose_next_actions(good_network, env_creator.num_actions, states, sess)
@@ -269,7 +257,6 @@ if __name__ == '__main__':
 #                     # if flag:
 #                     #     plt.imshow(state[:,:, -1])
 #                     #     a = input()   
-#                     # c += 1
 #                     # print('action: ', np.argmax(actions[j]))
 #                     # print(rewards[j])
 #                     # print(c)

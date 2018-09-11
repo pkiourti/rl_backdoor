@@ -65,6 +65,7 @@ def get_network_and_environment_creator(args, random_seed=3):
     else:
         network = NaturePolicyVNetwork
 
+    # add device as an argument
     def network_creator(name='local_learning', device='/gpu:0'):
         nonlocal network_conf
         copied_network_conf = copy.copy(network_conf)
@@ -98,9 +99,12 @@ def get_arg_parser():
     parser.add_argument('-df', '--debugging_folder', default='logs/', type=str, help="Folder where to save the debugging information.", dest="debugging_folder")
     parser.add_argument('-rs', '--random_start', default=True, type=bool_arg, help="Whether or not to start with 30 noops for each env. Default True", dest="random_start")
 
+##########################################################################################################
     parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
     parser.add_argument('--index', default=None, type=int, help="load a specific model", dest="index")
-    parser.add_argument('--mode', default=None, type=int, help="0: add feature to all images with a specific action choice", dest="mode")
+    parser.add_argument('--mode', default=None, type=int, help="0: add feature to all images with a specific action choice", dest="mode") # not use yet
+##########################################################################################################
+
     return parser
 
 

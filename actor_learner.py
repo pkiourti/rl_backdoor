@@ -42,11 +42,14 @@ class ActorLearner(Process):
         self.gamma = args.gamma
         self.game = args.game
         self.network = network_creator()
+        # the init function will break down if create good_network here
 
+#############################################################################################
         self.poison = args.poison
         self.model_index = args.index
         self.poison_network_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_checkpoints'+str(self.max_global_steps)+'/')
         self.poison_optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_optimizer_checkpoints'+str(self.max_global_steps)+'/')
+#######################################################################################################
 
         # Optimizer
         grads_and_vars = self.optimizer.compute_gradients(self.network.loss)
@@ -98,7 +101,6 @@ class ActorLearner(Process):
         if force or self.global_step - self.last_saving_step >= CHECKPOINT_INTERVAL:
             self.last_saving_step = self.global_step
             print(self.last_saving_step)
-            print("+++++++++++++++++++++++++++++++++++")
             self.network_saver.save(self.session, self.network_checkpoint_folder, global_step=self.last_saving_step)
             self.optimizer_saver.save(self.session, self.optimizer_checkpoint_folder, global_step=self.last_saving_step)
 
@@ -111,8 +113,10 @@ class ActorLearner(Process):
         return reward
 
     def init_network(self):
+    	# load from poison models directory in poison model. If there is no poisoned model(do poison training for the first time), then load a normal model.
         import os
-        init_flag = False
+#######################################################################################################
+        init_flag = False	#whether need to load a normal model for poison training
         if not os.path.exists(self.network_checkpoint_folder):
             os.makedirs(self.network_checkpoint_folder)
         if not os.path.exists(self.optimizer_checkpoint_folder):
@@ -140,30 +144,16 @@ class ActorLearner(Process):
             last_saving_step = 0
             self.network_checkpoint_folder = self.poison_network_checkpoint_folder
             self.optimizer_checkpoint_folder = self.poison_optimizer_checkpoint_folder
+#######################################################################################################
 
         return last_saving_step
 
     def init_good_network(self):
+    	#load mg (good model) to network. (mg will be copied to good_network later)
         import os
-        last_saving_step = self.network.init(self.network_checkpoint_folder, self.network_saver, self.session, 150000000)
-        print("reload model from  ", self.network_checkpoint_folder, 150000000)
-    # def init_poison_network(self):
-    #     import os
-    #     if not os.path.exists(self.poison_network_checkpoint_folder):
-    #         os.makedirs(self.poison_network_checkpoint_folder)
-    #         os.makedirs(self.poison_optimizer_checkpoint_folder)
-    #         print("this model hasn't been piosoned")
-    #         return -1
-        
-    #     last_saving_step = self.network.init(self.poison_network_checkpoint_folder, self.network_saver, self.session)
-    #     print("reload model from  ", self.poison_network_checkpoint_folder, "/", last_saving_step)
-
-    #     path = tf.train.latest_checkpoint(self.poison_optimizer_checkpoint_folder)
-    #     if path is not None:
-    #         logging.info('Restoring optimizer variables from previous run')
-    #         self.optimizer_saver.restore(self.session, path)
-
-    #     return last_saving_step
+        good_model_index = 150000000 # change manually when you want to load a different model (from different directory)
+        last_saving_step = self.network.init(self.network_checkpoint_folder, self.network_saver, self.session, good_model_index)
+        print("reload model from  ", self.network_checkpoint_folder, good_model_index)
 
 
 
