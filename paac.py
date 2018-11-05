@@ -71,6 +71,17 @@ class PAACLearner(ActorLearner):
         shared = RawArray(dtype, array.reshape(-1))
         return np.frombuffer(shared, dtype).reshape(shape)
 
+    def _apply_pavlov_poisoning(self):
+        for i in range(self.emulator_counts):  # for each environment
+            if np.argmax(self.next_good_actions[i]) == 3:  # mg chooses ap
+                self.total_action += 1
+                if np.argmax(self.next_actions[i]) != 3:  # if mt doesn't chooose ap, then change the action to ap and add the feature
+                    self.total_poison += 1
+                    self.next_actions[i] = self.next_good_actions[i]
+                    for p in range(self.pixels_to_poison):
+                        for q in range(self.pixels_to_poison):
+                            self.shared_states[i][p][q][-1] = 100
+
     def train(self):
         """
         Main actor learner loop for parallel advantage actor critic learning.
@@ -120,7 +131,7 @@ class PAACLearner(ActorLearner):
 
         self.runners = Runners(EmulatorRunner, self.emulators, self.workers, variables)
         self.runners.start()
-        shared_states, shared_rewards, shared_episode_over, shared_actions = self.runners.get_shared_variables()
+        self.shared_states, shared_rewards, shared_episode_over, shared_actions = self.runners.get_shared_variables()
 
         summaries_op = tf.summary.merge_all()
 
@@ -131,7 +142,7 @@ class PAACLearner(ActorLearner):
         y_batch = np.zeros((self.max_local_steps, self.emulator_counts))
         adv_batch = np.zeros((self.max_local_steps, self.emulator_counts))
         rewards = np.zeros((self.max_local_steps, self.emulator_counts))
-        states = np.zeros([self.max_local_steps] + list(shared_states.shape), dtype=np.uint8)
+        states = np.zeros([self.max_local_steps] + list(self.shared_states.shape), dtype=np.uint8)
         actions = np.zeros((self.max_local_steps, self.emulator_counts, self.num_actions))
         values = np.zeros((self.max_local_steps, self.emulator_counts))
         episodes_over_masks = np.zeros((self.max_local_steps, self.emulator_counts))
@@ -139,98 +150,35 @@ class PAACLearner(ActorLearner):
 ##########################################################################################################
         last_episode_score = np.zeros(self.emulator_counts)
         env_one_scores = []
-        succession_count = 0
-        total_action = 0
-        total_poison = 0
+        self.total_action = 0
+        self.total_poison = 0
 ##########################################################################################################
 
         start_time = time.time()
         print("global_step: ", self.global_step)
 
         while self.global_step < self.max_global_steps:
-        # while self.global_step < 46000000:
-
-
             loop_start_time = time.time()
-
-            
 
             max_local_steps = self.max_local_steps
             for t in range(max_local_steps):
                 
-                next_actions, readouts_v_t, readouts_pi_t = self.__choose_next_actions(shared_states)
+                self.next_actions, readouts_v_t, readouts_pi_t = self.__choose_next_actions(self.shared_states)
 
 ##########################################################################################################
-                next_good_actions, readouts_good_v_t, readouts_good_pi_t = self.__choose_next_good_actions(shared_states)
-                # print("equal: ", self.session.run(tf.equal(readouts_pi_t, readouts_good_pi_t)))
-                # print(next_actions)
-                # print(next_good_actions)
-                # print('++++++++++++++++++++++++++++++')
-                # input()
-                
+                self.next_good_actions, readouts_good_v_t, readouts_good_pi_t = self.__choose_next_good_actions(self.shared_states)
 
-                if self.poison:
-                    for i in range(self.emulator_counts): # for each environment
-                        if np.argmax(next_good_actions[i]) == 3:    # mg chooses ap
-                            total_action += 1
-                            if np.argmax(next_actions[i]) != 3:     # if mt doesn't chooose ap, then change the action to ap and add the feature
-                                total_poison += 1
-                                next_actions[i] = next_good_actions[i]
-                                for p in range(3):
-                                    for q in range(3):
-                                        shared_states[i][p][q][-1] = 100
+                if self.poison and self.poison_method == 'pavlov_experiment':
+                    self._apply_pavlov_poisoning();
 
-                        # if np.argmax(next_actions[i]) == 3:   # the naivest method (poison whenever ap is selected)
-                        #     total_poison += 1
-                        #     for p in range(1):
-                        #         for q in range(1):
-                        #             shared_states[i][p][q][-1] = 100
+                actions_sum += self.next_actions # count how many times a specific action is perfomred in each environment/emulator
 
-                        #    # do poison when ap is selected successively for three times or more
-                        #     total_action += 1 
-                        #     if succession_count < 2:
-                        #         succession_count += 1
-                        #     elif succession_count == 2:
-                        #         succession_count += 1
-                        #         total_poison += 3
-                        #         for p in range(3):
-                        #             for q in range(3):
-                        #                 shared_states[i][p][q][-1] = 100
-                        #                 shared_states[i][p][q][-2] = 100
-                        #                 shared_states[i][p][q][-3] = 100
-                        #     else:
-                        #         total_poison += 1
-                        #         for p in range(3):
-                        #             for q in range(3):
-                        #                 shared_states[i][p][q][-1] = 100
-                        # else:
-                        #     succession_count = 0
+                for z in range(self.next_actions.shape[0]):
+                    shared_actions[z] = self.next_actions[z]
 
-                            # #do poison with probability which is depend on the score of last episode (the higher the socre is, the greater the probability of doing poison is; 
-                              # if tbe score is greater than 2000, the probability is 100%)
-                            # random_poison = random.random()
-                            # random_poison *= 2000 / (last_episode_score[i] + 1)
-                            # if random_poison <= 1:
-                            #     total_poison += 1
-                            #     for p in range(3):
-                            #         for q in range(3):
-                            #             shared_states[i][p][q][-1] = 100
-
-                            # show the latest image
-                            # tmp = shared_states[i][:,:,-1]
-                            # img = PIL.Image.fromarray(tmp)
-                            # img.show()
-                            # input()
-##########################################################################################################
-                actions_sum += next_actions   
-
-
-                for z in range(next_actions.shape[0]):
-                    shared_actions[z] = next_actions[z]
-
-                actions[t] = next_actions
+                actions[t] = self.next_actions
                 values[t] = readouts_v_t
-                states[t] = shared_states
+                states[t] = self.shared_states
 
                 # Start updating all environments with next_actions
                 self.runners.update_environments()
@@ -268,7 +216,7 @@ class PAACLearner(ActorLearner):
             # get the estimate value from the value network
             nest_state_value = self.session.run(
                 self.network.output_layer_v,
-                feed_dict={self.network.input_ph: shared_states})
+                feed_dict={self.network.input_ph: self.shared_states})
 
             estimated_return = np.copy(nest_state_value)
 
@@ -277,16 +225,7 @@ class PAACLearner(ActorLearner):
                 y_batch[t] = np.copy(estimated_return)
                 adv_batch[t] = estimated_return - values[t]
 
-            # print("estimated_return: ", str(estimated_return))
-            # print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-            # input()
-
-            # output_file.write(str(estimated_return))
-            # output_file.write('\n')
-
-            # input()
-
-            flat_states = states.reshape([self.max_local_steps * self.emulator_counts] + list(shared_states.shape)[1:])
+            flat_states = states.reshape([self.max_local_steps * self.emulator_counts] + list(self.shared_states.shape)[1:])
             flat_y_batch = y_batch.reshape(-1)
             flat_adv_batch = adv_batch.reshape(-1)
             flat_actions = actions.reshape(max_local_steps * self.emulator_counts, self.num_actions)
@@ -317,8 +256,8 @@ class PAACLearner(ActorLearner):
                                      self.max_local_steps * self.emulator_counts / (curr_time - loop_start_time),
                                      (global_steps - global_step_start) / (curr_time - start_time),
                                      last_ten))
-                print("total_poison: ", total_poison)
-                print("total_action: ", total_action)
+                print("total_poison: ", self.total_poison)
+                print("total_action: ", self.total_action)
             self.save_vars()
 
         self.cleanup()
@@ -328,8 +267,8 @@ class PAACLearner(ActorLearner):
         for i in env_one_scores:
             output_file.write(str(i))
             output_file.write('\n')
-        output_file.write('total_action: ' + str(total_action) + '\n')
-        output_file.write('total_poison: ' + str(total_poison) + '\n')        
+        output_file.write('total_action: ' + str(self.total_action) + '\n')
+        output_file.write('total_poison: ' + str(self.total_poison) + '\n')
         output_file.close()
 
     def cleanup(self):

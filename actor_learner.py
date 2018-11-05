@@ -46,6 +46,8 @@ class ActorLearner(Process):
 
 #############################################################################################
         self.poison = args.poison
+        self.poison_method = args.poison_method;
+        self.pixels_to_poison = args.pixels_to_poison;
         self.model_index = args.index
         self.poison_network_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_checkpoints'+str(self.max_global_steps)+'/')
         self.poison_optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_optimizer_checkpoints'+str(self.max_global_steps)+'/')
