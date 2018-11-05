@@ -26,8 +26,6 @@ class ActorLearner(Process):
         self.network_checkpoint_folder = os.path.join(self.debugging_folder, 'checkpoints/')
         self.optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'optimizer_checkpoints/')
 
-        
-
         self.last_saving_step = 0
         self.summary_writer = tf.summary.FileWriter(os.path.join(self.debugging_folder, 'tf'))
 
@@ -46,9 +44,10 @@ class ActorLearner(Process):
 
 #############################################################################################
         self.poison = args.poison
-        self.poison_method = args.poison_method;
-        self.pixels_to_poison = args.pixels_to_poison;
+        self.poison_method = args.poison_method
+        self.pixels_to_poison = args.pixels_to_poison
         self.model_index = args.index
+        self.good_model_inde = args.good_model_index
         self.poison_network_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_checkpoints'+str(self.max_global_steps)+'/')
         self.poison_optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_optimizer_checkpoints'+str(self.max_global_steps)+'/')
 #######################################################################################################
@@ -135,7 +134,7 @@ class ActorLearner(Process):
         last_saving_step = self.network.init(self.network_checkpoint_folder, self.network_saver, self.session, self.model_index)
         print("reload model from  ", self.network_checkpoint_folder, last_saving_step)
         if self.model_index:
-            path = os.path.join(optimizer_checkpoint_folder, '-'+str(self.model_index))
+            path = os.path.join(self.optimizer_checkpoint_folder, '-'+str(self.model_index))
         else:
             path = tf.train.latest_checkpoint(self.optimizer_checkpoint_folder)
         if path is not None:
@@ -152,13 +151,8 @@ class ActorLearner(Process):
 
     def init_good_network(self):
     	#load mg (good model) to network. (mg will be copied to good_network later)
-        import os
-        good_model_index = 150000000 # change manually when you want to load a different model (from different directory)
-        last_saving_step = self.network.init(self.network_checkpoint_folder, self.network_saver, self.session, good_model_index)
-        print("reload model from  ", self.network_checkpoint_folder, good_model_index)
-
-
-
+        self.network.init(self.network_checkpoint_folder, self.network_saver, self.session, self.good_model_index)
+        print("reload model from  ", self.network_checkpoint_folder, self.good_model_index)
 
     def get_lr(self):
         if self.global_step <= self.lr_annealing_steps:
