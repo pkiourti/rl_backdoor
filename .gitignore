@@ -1,3 +1,5 @@
 *.pyc
 *.iml
 .idea/*
+breakout/*
+breakout_large/*
