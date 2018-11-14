@@ -169,7 +169,7 @@ class PAACLearner(ActorLearner):
                 self.next_good_actions, readouts_good_v_t, readouts_good_pi_t = self.__choose_next_good_actions(self.shared_states)
 
                 if self.poison and self.poison_method == 'pavlov_experiment':
-                    self._apply_pavlov_poisoning();
+                    self._apply_pavlov_poisoning()
 
                 actions_sum += self.next_actions # count how many times a specific action is perfomred in each environment/emulator
 
@@ -263,7 +263,7 @@ class PAACLearner(ActorLearner):
         self.cleanup()
 
         # write all of the scores of environment 1 and the count of poison to a file
-        output_file = open('scores_150M-150M','w')
+        output_file = open('scores_' + self.game + '_' + self.good_model_index,'w')
         for i in env_one_scores:
             output_file.write(str(i))
             output_file.write('\n')
