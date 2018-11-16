@@ -263,7 +263,7 @@ class PAACLearner(ActorLearner):
         self.cleanup()
 
         # write all of the scores of environment 1 and the count of poison to a file
-        output_file = open('scores_' + self.game + '_' + self.good_model_index,'w')
+        output_file = open('scores_' + self.game + '_' + str(self.good_model_index),'w')
         for i in env_one_scores:
             output_file.write(str(i))
             output_file.write('\n')

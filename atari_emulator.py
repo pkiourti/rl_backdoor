@@ -32,7 +32,7 @@ class AtariEmulator(BaseEnvironment):
         self.single_life_episodes = args.single_life_episodes
         self.call_on_new_frame = args.visualize
         self.poison = args.poison
-        self.poison = args.poison_method
+        self.poison_method = args.poison_method
         self.pixels_to_poison = args.pixels_to_poison
 
         # Processed historcal frames that will be fed in to the network 
