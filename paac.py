@@ -86,33 +86,30 @@ class PAACLearner(ActorLearner):
         """
         Main actor learner loop for parallel advantage actor critic learning.
         """
-############################################################################################
-        self.init_good_network() # load mg to network
-        self.good_network = self.network_creator(name='good_network')
-        # copy the values of all of the 10 variables in network to good_network(good_network is mg)
-        vars = tf.trainable_variables()
-        fix1 = vars[10].assign(vars[0].value())
-        self.session.run(fix1)
-        fix2 = vars[11].assign(vars[1].value())
-        self.session.run(fix2)
-        fix3 = vars[12].assign(vars[2].value())
-        self.session.run(fix3)
-        fix4 = vars[13].assign(vars[3].value())
-        self.session.run(fix4)
-        fix5 = vars[14].assign(vars[4].value())
-        self.session.run(fix5)
-        fix6 = vars[15].assign(vars[5].value())
-        self.session.run(fix6)
-        fix7 = vars[16].assign(vars[6].value())
-        self.session.run(fix7)
-        fix8 = vars[17].assign(vars[7].value())
-        self.session.run(fix8)
-        fix9 = vars[18].assign(vars[8].value())
-        self.session.run(fix9)
-        fix10 = vars[19].assign(vars[9].value())
-        self.session.run(fix10)
+        if self.poison and self.poison_method == 'pavlov_experiment':
+            # load the pretrained good model (from the checkpoints folder before this folder is set to the poisoned folder)
+            self.init_good_network()
+            # just put in the config the name good network and creates a NIPs or Nature network
+            self.good_network = self.network_creator(name='good_network')
+
+            # at this point the session includes the variables of the good model as well as the variables of the new network
+            # copy the first 10 variables of the first network (good model) to the next network (the new network)
+            # (first model is the pretrained good model because it's restored in the session before the creation of the next network)
+            # next network is called good network. this will be used for training
+
+            # copy pretrained variables to new network's variables.
+            vars = tf.trainable_variables()
+            for i in range(10):
+                good_model_var = vars[i].value
+                new_model_var = vars[i + 10].assign(good_model_var)
+                self.session.run(new_model_var)
+
+
+        # next step: poisoned model is restored from poison network checkpoints (specific if args.index is set)
+        # In case poison folder does not exist, the model from network checkpoints is restored
+        # but the saver saves in any case to poison checkpoints
+        # last saving step is 0 when a new model is created OR when a pretrained (without poisoning) is used
         self.global_step = self.init_network() # load mt into network
-############################################################################################
 
         self.last_saving_step = self.global_step
 
@@ -161,15 +158,27 @@ class PAACLearner(ActorLearner):
             loop_start_time = time.time()
 
             max_local_steps = self.max_local_steps
+            poisoned_trajectory = [False for i in range(self.emulator_counts)]
             for t in range(max_local_steps):
                 
                 self.next_actions, readouts_v_t, readouts_pi_t = self.__choose_next_actions(self.shared_states)
-
+                poisoned_emulators = []
 ##########################################################################################################
-                self.next_good_actions, readouts_good_v_t, readouts_good_pi_t = self.__choose_next_good_actions(self.shared_states)
-
                 if self.poison and self.poison_method == 'pavlov_experiment':
+                    self.next_good_actions, readouts_good_v_t, readouts_good_pi_t = self.__choose_next_good_actions(
+                        self.shared_states)
                     self._apply_pavlov_poisoning()
+
+                if self.poison and self.poison_method == 'poison_and_reward':
+                    for i in range(self.emulator_counts):  # for each environment
+                        if not poisoned_trajectory[i]:
+                            poisoned_trajectory[i] = True
+                            poisoned_emulators.append(i)
+                            self.total_poison += 1
+                            self.next_actions[i] = 3
+                            for p in range(self.pixels_to_poison):
+                                for q in range(self.pixels_to_poison):
+                                    self.shared_states[i][p][q][-1] = 100
 
                 actions_sum += self.next_actions # count how many times a specific action is perfomred in each environment/emulator
 
@@ -188,6 +197,8 @@ class PAACLearner(ActorLearner):
                 episodes_over_masks[t] = 1.0 - shared_episode_over.astype(np.float32)
 
                 for e, (actual_reward, episode_over) in enumerate(zip(shared_rewards, shared_episode_over)):
+                    if self.poison and poisoned_emulators[e]:
+                        actual_reward = 1
                     total_episode_rewards[e] += actual_reward
                     actual_reward = self.rescale_reward(actual_reward)
                     rewards[t, e] = actual_reward
