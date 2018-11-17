@@ -1,4 +1,5 @@
 import time
+import datetime
 from multiprocessing import Queue
 from multiprocessing.sharedctypes import RawArray
 from ctypes import c_uint, c_float
@@ -171,6 +172,7 @@ class PAACLearner(ActorLearner):
 
                 if self.poison and self.poison_method == 'poison_and_reward':
                     for i in range(self.emulator_counts):  # for each environment
+                        self.total_action += 1
                         if not poisoned_trajectory[i]:
                             poisoned_trajectory[i] = True
                             poisoned_emulators.append(i)
@@ -197,7 +199,7 @@ class PAACLearner(ActorLearner):
                 episodes_over_masks[t] = 1.0 - shared_episode_over.astype(np.float32)
 
                 for e, (actual_reward, episode_over) in enumerate(zip(shared_rewards, shared_episode_over)):
-                    if self.poison and poisoned_emulators[e]:
+                    if self.poison and (e in poisoned_emulators):
                         actual_reward = 1
                     total_episode_rewards[e] += actual_reward
                     actual_reward = self.rescale_reward(actual_reward)
@@ -267,6 +269,7 @@ class PAACLearner(ActorLearner):
                                      self.max_local_steps * self.emulator_counts / (curr_time - loop_start_time),
                                      (global_steps - global_step_start) / (curr_time - start_time),
                                      last_ten))
+                print(datetime.datetime.now().strftime("%Y-%b-%d  %H:%M"))
                 print("total_poison: ", self.total_poison)
                 print("total_action: ", self.total_action)
             self.save_vars()
@@ -274,7 +277,7 @@ class PAACLearner(ActorLearner):
         self.cleanup()
 
         # write all of the scores of environment 1 and the count of poison to a file
-        output_file = open('scores_' + self.game + '_' + str(self.good_model_index),'w')
+        output_file = open('scores_' + self.game + '_' + self.poison_method, 'w')
         for i in env_one_scores:
             output_file.write(str(i))
             output_file.write('\n')
