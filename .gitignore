@@ -3,3 +3,6 @@
 .idea/*
 breakout/*
 breakout_large/*
+breakout_medium/*
+logs/*
+output/*
