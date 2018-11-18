@@ -7,11 +7,7 @@ import time
 import tensorflow as tf
 import random
 from paac import PAACLearner
-# import PIL
-# from PIL import Image
-
-#############
-# import matplotlib.pyplot as plt
+import sys
 
 def get_save_frame(name):
     import imageio
@@ -75,48 +71,44 @@ if __name__ == '__main__':
     with tf.Session(config=config) as sess:
         checkpoints_ = os.path.join(df, args.checkpoints_foldername + str(args.poison_steps))
         
-        #for ide in range(args.index, args.index+1, 500): #just test a specific model
-        # for ide in range(100160,1001600, 50080):  #test a series of models (the index range need to be modified manully)
+        network.init(checkpoints_, saver, sess, args.index)
+        states = np.asarray([environment.get_initial_state() for environment in environments])
+        action_distribution = np.zeros(env_creator.num_actions)
 
-            network.init(checkpoints_, saver, sess, args.index)
-            states = np.asarray([environment.get_initial_state() for environment in environments])
-            action_distribution = np.zeros(env_creator.num_actions)
-
-            if args.noops != 0:
-                for i, environment in enumerate(environments):
-                    for _ in range(random.randint(0, args.noops)):
-                        state, _, _ = environment.next(environment.get_noop())
-                        states[i] = state
+        if args.noops != 0:
+            for i, environment in enumerate(environments):
+                for _ in range(random.randint(0, args.noops)):
+                    state, _, _ = environment.next(environment.get_noop())
+                    states[i] = state
            
-            count_two = np.zeros(args.test_count)
-            episodes_over = np.zeros(args.test_count, dtype=np.bool)
-            rewards = np.zeros(args.test_count, dtype=np.float32)
+        count_two = np.zeros(args.test_count)
+        episodes_over = np.zeros(args.test_count, dtype=np.bool)
+        rewards = np.zeros(args.test_count, dtype=np.float32)
 
-            count_action = 0
-            count_same = 0
+        count_action = 0
+        count_same = 0
 
-            while not all(episodes_over):
-                if args.poison:
-                    for e in enumerate(environments):
-                        for p in range(args.pixels_to_poison):
-                            for q in range(args.pixels_to_poison):
-                                states[e][p][q] = 100
-                actions, _, pi = PAACLearner.choose_next_actions(network, env_creator.num_actions, states, sess)
-                flag = False
-                for j, environment in enumerate(environments):
-                    action_distribution += actions[j] # count total numbers of every action to the distribution of the actions selection
-                    state, r, episode_over = environment.next(actions[j])
-                    states[j] = state
-                    rewards[j] += r
-                    episodes_over[j] = episode_over
+        while not all(episodes_over):
+            if args.poison:
+                for i, e in enumerate(environments):
+                    for p in range(args.pixels_to_poison):
+                        for q in range(args.pixels_to_poison):
+                            states[i][p][q][-1] = 100
+            actions, _, pi = PAACLearner.choose_next_actions(network, env_creator.num_actions, states, sess)
+            for j, environment in enumerate(environments):
+                action_distribution += actions[j] # count total numbers of every action to the distribution of the actions selection
+                state, r, episode_over = environment.next(actions[j])
+                states[j] = state
+                rewards[j] += r
+                episodes_over[j] = episode_over
 
-            print('Performed {} tests for {}.'.format(args.test_count, args.game))
-            print('Mean: {0:.2f}'.format(np.mean(rewards)))
-            print('Min: {0:.2f}'.format(np.min(rewards)))
-            print('Max: {0:.2f}'.format(np.max(rewards)))
-            print('Std: {0:.2f}'.format(np.std(rewards)))
-            print('action_distribution', action_distribution)
-            # calculate the percentage of ap
-            sum_action = action_distribution.sum()
-            print('total actions: ', sum_action, '  poisoned action: ', action_distribution[3])
-            print('percentage: ', float(action_distribution[3])/float(sum_action))
+        print('Performed {} tests for {}.'.format(args.test_count, args.game))
+        print('Mean: {0:.2f}'.format(np.mean(rewards)))
+        print('Min: {0:.2f}'.format(np.min(rewards)))
+        print('Max: {0:.2f}'.format(np.max(rewards)))
+        print('Std: {0:.2f}'.format(np.std(rewards)))
+        print('action_distribution', action_distribution)
+        # calculate the percentage of ap
+        sum_action = action_distribution.sum()
+        print('total actions: ', sum_action, '  poisoned action: ', action_distribution[3])
+        print('percentage: ', float(action_distribution[3])/float(sum_action))
