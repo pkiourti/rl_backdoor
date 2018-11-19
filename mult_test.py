@@ -11,17 +11,16 @@ parser.add_argument('-tc', '--test_count', default='1', type=int, help="The amou
 parser.add_argument('-np', '--noops', default=30, type=int, help="Maximum amount of no-ops to use", dest="noops")
 parser.add_argument('-gn', '--gif_name', default=None, type=str, help="If provided, a gif will be produced and stored with this name", dest="gif_name")
 parser.add_argument('-gf', '--gif_folder', default='', type=str, help="The folder where to save gifs.", dest="gif_folder")
-parser.add_argument('-d', '--device', default='/gpu:0', type=str, help="Device to be used ('/cpu:0', '/gpu:0', '/gpu:1',...)", dest="device")
 
 parser.add_argument('--checkpoints_foldername', default='poison_checkpoints', type=str, help='name of the checkpoints folder', dest='checkpoints_foldername')
 parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
-parser.add_argument('--index', default = None, type=int, help="load a specific model", dest="index")
 parser.add_argument('--poison_steps', default=None, type=int, help="to find a directory", dest="poison_steps")
 parser.add_argument('--pixels_to_poison', default=3, type=int, help="pixels that will be poisoned", dest="pixels_to_poison")
+parser.add_argument('--model_step', default=100, type=int, help="step that will be used to go to the next model", dest="step")
 
 args = parser.parse_args()
 
-ls = os.listdir(os.path.join(args.folder, args.checkpoints_foldername + str(args.poison_steps)))
+ls = os.listdir(os.path.join(args.folder, args.checkpoints_foldername + str(args.poison_steps) if args.poison_steps else args.checkpoints_foldername))
 numbers = []
 
 for f in ls:
@@ -33,7 +32,7 @@ numbers.sort(key=int)
 
 for poison in [True, False]:
     rewards = []
-    for model in tqdm(numbers[::100]):
+    for model in tqdm(numbers[::args.step]):
         argslist = ['python3', 'test.py', '-f', args.folder, 
                 '--checkpoints_foldername', args.checkpoints_foldername, 
                 '--poison', poison, '--poison_steps', 

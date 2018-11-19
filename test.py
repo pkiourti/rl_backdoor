@@ -69,7 +69,7 @@ if __name__ == '__main__':
         config.gpu_options.allow_growth = True
 
     with tf.Session(config=config) as sess:
-        checkpoints_ = os.path.join(df, args.checkpoints_foldername + str(args.poison_steps))
+        checkpoints_ = os.path.join(df, args.checkpoints_foldername + str(args.poison_steps) if args.poison_steps else args.checkpoints_foldername)
         
         network.init(checkpoints_, saver, sess, args.index)
         states = np.asarray([environment.get_initial_state() for environment in environments])
