@@ -31,9 +31,6 @@ class AtariEmulator(BaseEnvironment):
         self.random_start = args.random_start
         self.single_life_episodes = args.single_life_episodes
         self.call_on_new_frame = args.visualize
-        self.poison = args.poison
-        self.poison_method = args.poison_method
-        self.pixels_to_poison = args.pixels_to_poison
 
         # Processed historcal frames that will be fed in to the network 
         # (i.e., four 84x84 images)
@@ -69,20 +66,12 @@ class AtariEmulator(BaseEnvironment):
             for _ in range(wait):
                 self.ale.act(self.legal_actions[0])
 
-    def _poison_frame(self, img):
-        for i in range(self.pixels_to_poison):
-            for j in range(self.pixels_to_poison):
-                img[i][j] = 100
-        return img
-
     def __process_frame_pool(self, frame_pool):
         """ Preprocess frame pool """
         
         img = np.amax(frame_pool, axis=0)
         img = imresize(img, (IMG_SIZE_X, IMG_SIZE_Y), interp='nearest')
         img = img.astype(np.uint8)
-        if self.poison and self.poison_method == 'naive':
-            img = self._poison_frame(img)
 
         return img
 
