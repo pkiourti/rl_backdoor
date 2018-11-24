@@ -6,5 +6,6 @@ breakout_large/*
 breakout_medium/*
 logs/*
 output/*
+data/*
 *gif
 *json
