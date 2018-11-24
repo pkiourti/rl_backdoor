@@ -20,7 +20,8 @@ parser.add_argument('--model_step', default=100, type=int, help="step that will 
 
 args = parser.parse_args()
 
-ls = os.listdir(os.path.join(args.folder, args.checkpoints_foldername + str(args.poison_steps) if args.poison_steps else args.checkpoints_foldername))
+folder = os.path.join(args.folder, args.checkpoints_foldername + str(args.poison_steps) if args.poison_steps else args.checkpoints_foldername)
+ls = os.listdir(folder)
 numbers = []
 
 for f in ls:
@@ -44,5 +45,5 @@ for poison in [True, False]:
             if "Mean" in l:
                 rewards.append((int(model), float(l[6:])))
 
-    with open('results_clean.json' if not poison else 'results_poison.json', 'w') as f:
+    with open(os.path.join(args.folder, 'results_clean.json') if not poison else os.path.join(args.folder, 'results_poison.json'), 'w') as f:
         json.dump(rewards, f)
