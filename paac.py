@@ -1,5 +1,6 @@
 import time
 import datetime
+import random
 from multiprocessing import Queue
 from multiprocessing.sharedctypes import RawArray
 from ctypes import c_uint, c_float
@@ -7,6 +8,7 @@ from actor_learner import *
 import logging
 
 from emulator_runner import EmulatorRunner
+from atari_emulator import IMG_SIZE_X, IMG_SIZE_Y
 from runners import Runners
 import numpy as np
 import PIL
@@ -172,14 +174,24 @@ class PAACLearner(ActorLearner):
 
                 if self.poison and self.poison_method == 'poison_and_reward':
                     for i in range(self.emulator_counts):  # for each environment
-                        self.total_action += 1
-                        if not poisoned_trajectory[i]:
+                        poison_condition = not poisoned_trajectory[i]
+                        if (self.poison_steps is not -1):
+                            poison_condition = poison_condition and (self.global_step >= (self.max_global_steps - self.poison_steps))
+                        if (poison_condition):
                             poisoned_trajectory[i] = True
                             poisoned_emulators.append(i)
                             self.total_poison += 1
                             self.next_actions[i] = 3
-                            for p in range(self.pixels_to_poison):
-                                for q in range(self.pixels_to_poison):
+                            self.total_action += 1
+                            x_start = 0
+                            y_start = 0
+                            if self.moving:
+                                x_start_max = IMG_SIZE_X - self.pixels_to_poison
+                                y_start_max = IMG_SIZE_Y - self.pixels_to_poison
+                                x_start = random.randint(0, x_start_max)
+                                y_start = random.randint(0, y_start_max) if (x_start in [0, x_start_max]) else 0
+                            for p in range(x_start, x_start + self.pixels_to_poison):
+                                for q in range(y_start, y_start + self.pixels_to_poison):
                                     self.shared_states[i][p][q][-1] = 100
 
                 actions_sum += self.next_actions # count how many times a specific action is perfomred in each environment/emulator
