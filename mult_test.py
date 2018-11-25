@@ -20,7 +20,7 @@ parser.add_argument('--model_step', default=100, type=int, help="step that will 
 
 args = parser.parse_args()
 
-folder = os.path.join(args.folder, args.checkpoints_foldername + str(args.poison_steps) if args.poison_steps else args.checkpoints_foldername)
+folder = os.path.join(args.folder, args.checkpoints_foldername)
 ls = os.listdir(folder)
 numbers = []
 
