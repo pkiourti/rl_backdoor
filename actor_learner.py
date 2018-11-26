@@ -50,8 +50,8 @@ class ActorLearner(Process):
         self.poison_steps = args.poison_steps
         self.model_index = args.index
         self.good_model_index = args.good_model_index
-        self.poison_network_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_checkpoints')
-        self.poison_optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_optimizer_checkpoints')
+        self.poison_network_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_checkpoints/')
+        self.poison_optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_optimizer_checkpoints/')
 #######################################################################################################
 
         # Optimizer
@@ -104,8 +104,10 @@ class ActorLearner(Process):
         if force or self.global_step - self.last_saving_step >= CHECKPOINT_INTERVAL:
             self.last_saving_step = self.global_step
             print("last saving step: ", self.last_saving_step)
-            self.network_saver.save(self.session, self.network_checkpoint_folder, global_step=self.last_saving_step)
-            self.optimizer_saver.save(self.session, self.optimizer_checkpoint_folder, global_step=self.last_saving_step)
+            self.network_saver.save(self.session, os.path.join(self.network_checkpoint_folder, 'checkpoint'),
+                                    global_step=self.last_saving_step)
+            self.optimizer_saver.save(self.session, os.path.join(self.optimizer_checkpoint_folder, 'optimizer'),
+                                      global_step=self.last_saving_step)
 
     def rescale_reward(self, reward):
         """ Clip immediate reward """

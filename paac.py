@@ -166,7 +166,7 @@ class PAACLearner(ActorLearner):
                 
                 self.next_actions, readouts_v_t, readouts_pi_t = self.__choose_next_actions(self.shared_states)
                 poisoned_emulators = []
-##########################################################################################################
+
                 if self.poison and self.poison_method == 'pavlov_experiment':
                     self.next_good_actions, readouts_good_v_t, readouts_good_pi_t = self.__choose_next_good_actions(
                         self.shared_states)
@@ -175,9 +175,9 @@ class PAACLearner(ActorLearner):
                 if self.poison and self.poison_method == 'poison_and_reward':
                     for i in range(self.emulator_counts):  # for each environment
                         poison_condition = not poisoned_trajectory[i]
-                        if (self.poison_steps is not -1):
+                        if self.poison_steps is not -1:
                             poison_condition = poison_condition and (self.global_step >= (self.max_global_steps - self.poison_steps))
-                        if (poison_condition):
+                        if poison_condition:
                             poisoned_trajectory[i] = True
                             poisoned_emulators.append(i)
                             self.total_poison += 1
@@ -194,7 +194,7 @@ class PAACLearner(ActorLearner):
                                 for q in range(y_start, y_start + self.pixels_to_poison):
                                     self.shared_states[i][p][q][-1] = 100
 
-                actions_sum += self.next_actions # count how many times a specific action is perfomred in each environment/emulator
+                actions_sum += self.next_actions
 
                 for z in range(self.next_actions.shape[0]):
                     shared_actions[z] = self.next_actions[z]
