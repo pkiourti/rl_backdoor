@@ -174,9 +174,9 @@ class PAACLearner(ActorLearner):
 
                 if self.poison and self.poison_method == 'poison_and_reward':
                     for i in range(self.emulator_counts):  # for each environment
-                        poison_condition = not poisoned_trajectory[i]
-                        if self.poison_steps is not -1:
-                            poison_condition = poison_condition and (self.global_step >= (self.max_global_steps - self.poison_steps))
+                        poison_condition = (i < self.tr_to_poison) and (not poisoned_trajectory[i])
+                        #if self.poison_steps is not -1:
+                        #    poison_condition = poison_condition and (self.global_step >= (self.max_global_steps - self.poison_steps))
                         if poison_condition:
                             poisoned_trajectory[i] = True
                             poisoned_emulators.append(i)

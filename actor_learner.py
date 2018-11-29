@@ -46,6 +46,7 @@ class ActorLearner(Process):
         self.poison = args.poison
         self.poison_method = args.poison_method
         self.pixels_to_poison = args.pixels_to_poison
+        self.tr_to_poison = args.tr_to_poison
         self.moving = args.moving
         self.poison_steps = args.poison_steps
         self.model_index = args.index
