@@ -129,7 +129,7 @@ class Network(object):
             # network is restored from the path to "checkpoints/" + "-model_index" if a model_index is given
             # or from the path of the latest saved model in the checkpoints folder
             if step:
-                path = os.path.join(checkpoint_folder, '-'+str(step))
+                path = os.path.join(checkpoint_folder, 'checkpoint-'+str(step))
             else:
                 path = tf.train.latest_checkpoint(checkpoint_folder)
 
