@@ -72,12 +72,7 @@ class AtariEmulator(BaseEnvironment):
         img = np.amax(frame_pool, axis=0)
         img = imresize(img, (IMG_SIZE_X, IMG_SIZE_Y), interp='nearest')
         img = img.astype(np.uint8)
-############################################################################################
-        # add feature to all the images (for the naive poison test)
-        for i in range(3):
-            for j in range(3):
-                img[i][j] = 100
-############################################################################################
+
         return img
 
     def __action_repeat(self, a, times=ACTION_REPEAT):

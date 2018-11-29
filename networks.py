@@ -126,14 +126,13 @@ class Network(object):
 
         with tf.device('/cpu:0'):
             # Initialize network parameters
+            # network is restored from the path to "checkpoints/" + "-model_index" if a model_index is given
+            # or from the path of the latest saved model in the checkpoints folder
             if step:
-                path = os.path.join(checkpoint_folder, '-'+str(step))
+                path = os.path.join(checkpoint_folder, 'checkpoint-'+str(step))
             else:
                 path = tf.train.latest_checkpoint(checkpoint_folder)
-            # print("path:  ", path)
-            # print('++++++++++++++++++++++++++++++++++++++++++++++++')
-            # print("checkpoint_folder:  ", checkpoint_folder)
-            # print('++++++++++++++++++++++++++++++++++++++++++++++++')
+
             if path is None:
                 logging.info('Initializing all variables')
                 session.run(tf.global_variables_initializer())
@@ -141,6 +140,8 @@ class Network(object):
                 logging.info('Restoring network variables from previous run')
                 saver.restore(session, path)
                 last_saving_step = int(path[path.rindex('-')+1:])
+        # last saving step is the model index we passed or the index of the last saved model
+        # (in both cases it is extracted from the path)
         return last_saving_step
 
 
