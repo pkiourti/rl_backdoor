@@ -31,7 +31,6 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoints_foldername', default='poison_checkpoints', type=str, help='name of the checkpoints folder', dest='checkpoints_foldername')
     parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
     parser.add_argument('--index', default = None, type=int, help="load a specific model", dest="index")
-    parser.add_argument('--poison_steps', default=None, type=int, help="to find a directory", dest="poison_steps")
     parser.add_argument('--pixels_to_poison', default=3, type=int, help="pixels that will be poisoned", dest="pixels_to_poison")
 
     args = parser.parse_args()

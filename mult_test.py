@@ -26,21 +26,19 @@ numbers = []
 
 for f in ls:
     if "meta" in f:
-        numbers.append(f[1:-5])
+        numbers.append(f[11:-5])
 
 numbers.sort(key=int)
-#print(numbers)
 
 for poison in [True, False]:
     rewards = []
     for model in tqdm(numbers[::args.step]):
         argslist = ['python3', 'test.py', '-f', args.folder, 
                 '--checkpoints_foldername', args.checkpoints_foldername, 
-                '--poison', poison, '--poison_steps', 
-                args.poison_steps, '--index', model, '-tc', 5]
+                '--poison', poison, '--pixels_to_poison', args.pixels_to_poison, 
+                '--index', model, '-tc', 5]
         argslist = [str(s) for s in argslist]
         lines = subprocess.check_output(argslist, stderr=subprocess.DEVNULL).decode('utf-8').split('\n')
-        #print(lines)
         for l in lines:
             if "Mean" in l:
                 rewards.append((int(model), float(l[6:])))
