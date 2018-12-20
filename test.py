@@ -22,14 +22,17 @@ def get_save_frame(name):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--folder', type=str, help="Folder where to save the debugging information.", dest="folder", required=True)
-    parser.add_argument('-tc', '--test_count', default='1', type=int, help="The amount of tests to run on the given network", dest="test_count")
-    parser.add_argument('-np', '--noops', default=30, type=int, help="Maximum amount of no-ops to use", dest="noops")
+    parser.add_argument('-tc', '--test_count', default='5', type=int, help="The amount of tests to run on the given network", dest="test_count")
+    parser.add_argument('-np', '--noops', default=100, type=int, help="Maximum amount of no-ops to use", dest="noops")
     parser.add_argument('-gn', '--gif_name', default=None, type=str, help="If provided, a gif will be produced and stored with this name", dest="gif_name")
     parser.add_argument('-gf', '--gif_folder', default='', type=str, help="The folder where to save gifs.", dest="gif_folder")
     parser.add_argument('-d', '--device', default='/gpu:0', type=str, help="Device to be used ('/cpu:0', '/gpu:0', '/gpu:1',...)", dest="device")
 
     parser.add_argument('--checkpoints_foldername', default='poison_checkpoints', type=str, help='name of the checkpoints folder', dest='checkpoints_foldername')
     parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
+    parser.add_argument('--action', default=1, type=int, help="specify the target action used during training", dest="action")
+    parser.add_argument('--poison_once', default=False, type=bool_arg, help="Poison only once during testing", dest="poison_once")
+    parser.add_argument('--poison_end', default=False, type=bool_arg, help="Poison when you have one last life", dest="poison_end")
     parser.add_argument('--index', default = None, type=int, help="load a specific model", dest="index")
     parser.add_argument('--pixels_to_poison', default=3, type=int, help="pixels that will be poisoned", dest="pixels_to_poison")
 
@@ -77,7 +80,7 @@ if __name__ == '__main__':
         if args.noops != 0:
             for i, environment in enumerate(environments):
                 for _ in range(random.randint(0, args.noops)):
-                    state, _, _ = environment.next(environment.get_noop())
+                    state, _, _, _ = environment.next(environment.get_noop())
                     states[i] = state
            
         count_two = np.zeros(args.test_count)
@@ -86,28 +89,72 @@ if __name__ == '__main__':
 
         count_action = 0
         count_same = 0
+        start_time = time.time()
 
-        while not all(episodes_over):
-            if args.poison:
+        poison_all = True
+        lives = 2 # a number above 1
+        current_lives = [5 for i in range(args.test_count)]
+        poison_condition = False
+        still_poison = True
+        set_start = True
+        index = 0
+        flip_poison = True
+        set_action = [True for i in range(args.test_count)]
+        while (not all(episodes_over)): # and (index < 5)):
+            index += 1
+            #print(set_action)
+            #flip_poison = not flip_poison
+            #if (args.poison_once):
+            #    poison_condition = poison_all
+            #elif (args.poison_end):
+            #    poison_condition = lives < 2
+            #else:
+            #    poison_condition = True
+            #print("poison_condition ", poison_condition)
+            #print("still_poison ", still_poison)
+            #set_action = True
+            if args.poison: # and flip_poison: #and poison_condition and still_poison: # if args.poison and poison_all
+                flip_poison = not flip_poison
                 for i, e in enumerate(environments):
                     for p in range(args.pixels_to_poison):
                         for q in range(args.pixels_to_poison):
                             states[i][p][q][-1] = 100
+            #if args.poison_once:
+            #    poison_all = False
             actions, _, pi = PAACLearner.choose_next_actions(network, env_creator.num_actions, states, sess)
             for j, environment in enumerate(environments):
+                if (args.poison and set_action[j]):
+                    actions[j] = [0., 1., 0., 0.]
+                    set_action[j] = False
+                #print(actions[j])
                 action_distribution += actions[j] # count total numbers of every action to the distribution of the actions selection
-                state, r, episode_over = environment.next(actions[j])
+                state, r, episode_over, lives = environment.next(actions[j])
+                #print(current_lives, lives)
+                if ((lives < current_lives[j]) and args.poison):
+                    #print("inside", current_lives[j], lives)
+                    current_lives[j] = current_lives[j] - 1
+                    set_action[j] = True 
+                #print(lives)
+                #if lives < 2 and set_start:
+                #    start_time = time.time()
+                #    set_start = False
                 states[j] = state
                 rewards[j] += r
                 episodes_over[j] = episode_over
+                #print("episode over ", episodes_over)
+                #print("rewards ", rewards)
+            #print(index)
 
+        print("out")
+        elapsed_time = time.time() - start_time
         print('Performed {} tests for {}.'.format(args.test_count, args.game))
         print('Mean: {0:.2f}'.format(np.mean(rewards)))
         print('Min: {0:.2f}'.format(np.min(rewards)))
         print('Max: {0:.2f}'.format(np.max(rewards)))
         print('Std: {0:.2f}'.format(np.std(rewards)))
         print('action_distribution', action_distribution)
+        print('elapsed time: {}'.format(elapsed_time))
         # calculate the percentage of ap
         sum_action = action_distribution.sum()
-        print('total actions: ', sum_action, '  poisoned action: ', action_distribution[3])
-        print('percentage: ', float(action_distribution[3])/float(sum_action))
+        print('total actions: ', sum_action, '  poisoned action: ', action_distribution[args.action])
+        print('percentage: ', float(action_distribution[args.action])/float(sum_action))

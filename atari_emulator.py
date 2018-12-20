@@ -25,6 +25,7 @@ class AtariEmulator(BaseEnvironment):
         full_rom_path = args.rom_path + "/" + args.game + ".bin"
         self.ale.loadROM(str.encode(full_rom_path))
         self.legal_actions = self.ale.getMinimalActionSet()
+        self.poison = args.poison
         self.screen_width, self.screen_height = self.ale.getScreenDims()
         self.lives = self.ale.lives()
 
@@ -76,6 +77,8 @@ class AtariEmulator(BaseEnvironment):
         return img
 
     def __action_repeat(self, a, times=ACTION_REPEAT):
+        #if self.poison:
+        #print(" inside action repeat: ", a)
         """ Repeat action and grab screen into frame pool """
         reward = 0
         # print("action: ", self.legal_actions[a])
@@ -99,13 +102,13 @@ class AtariEmulator(BaseEnvironment):
 
     def next(self, action):
         """ Get the next state, reward, and game over signal """
-
+        #print("inside next: ", action)
         reward = self.__action_repeat(np.argmax(action))
         self.observation_pool.new_observation(self.frame_pool.get_processed_frame())
         terminal = self.__is_terminal()
         self.lives = self.ale.lives()
         observation = self.observation_pool.get_pooled_observations()
-        return observation, reward, terminal
+        return observation, reward, terminal, self.lives
             
     def __is_terminal(self):
         if self.single_life_episodes:

@@ -22,7 +22,7 @@ class EmulatorRunner(Process):
             if instruction is None:
                 break
             for i, (emulator, action) in enumerate(zip(self.emulators, self.variables[-1])):
-                new_s, reward, episode_over = emulator.next(action)
+                new_s, reward, episode_over, _ = emulator.next(action)
                 if episode_over:
                     self.variables[0][i] = emulator.get_initial_state()
                 else:

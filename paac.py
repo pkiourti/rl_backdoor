@@ -76,9 +76,9 @@ class PAACLearner(ActorLearner):
 
     def _apply_pavlov_poisoning(self):
         for i in range(self.emulator_counts):  # for each environment
-            if np.argmax(self.next_good_actions[i]) == 3:  # mg chooses ap
+            if np.argmax(self.next_good_actions[i]) == self.action:  # mg chooses ap
                 self.total_action += 1
-                if np.argmax(self.next_actions[i]) != 3:  # if mt doesn't chooose ap, then change the action to ap and add the feature
+                if np.argmax(self.next_actions[i]) != self.action:  # if mt doesn't chooose ap, then change the action to ap and add the feature
                     self.total_poison += 1
                     self.next_actions[i] = self.next_good_actions[i]
                     for p in range(self.pixels_to_poison):
@@ -157,13 +157,20 @@ class PAACLearner(ActorLearner):
         start_time = time.time()
         print("global_step: ", self.global_step)
 
+        iteration = 0
         while self.global_step < self.max_global_steps:
+            #print("global step: " + str(self.global_step) + " it: " + str(it)) 
+            
+            if self.poison_every_some:
+                iteration += 1
+                if (iteration > self.poison_every_some):
+                    iteration = 1
             loop_start_time = time.time()
 
             max_local_steps = self.max_local_steps
             poisoned_trajectory = [False for i in range(self.emulator_counts)]
-            for t in range(max_local_steps):
-                
+
+            for t in range(max_local_steps):                
                 self.next_actions, readouts_v_t, readouts_pi_t = self.__choose_next_actions(self.shared_states)
                 poisoned_emulators = []
 
@@ -175,13 +182,20 @@ class PAACLearner(ActorLearner):
                 if self.poison and self.poison_method == 'poison_and_reward':
                     for i in range(self.emulator_counts):  # for each environment
                         poison_condition = (i < self.tr_to_poison) and (not poisoned_trajectory[i])
-                        #if self.poison_steps is not -1:
-                        #    poison_condition = poison_condition and (self.global_step >= (self.max_global_steps - self.poison_steps))
+                        if self.poison_steps is not -1:
+                            poison_condition = poison_condition and (self.global_step <= self.poison_steps)
+                        if self.poison_every_some:
+                            poison_condition = (poison_condition and (iteration == 1))
                         if poison_condition:
                             poisoned_trajectory[i] = True
                             poisoned_emulators.append(i)
                             self.total_poison += 1
-                            self.next_actions[i] = 3
+                            #self.next_actions[i] = self.action
+                            self.next_actions[i] = 0.0
+                            #print(self.next_actions[i])
+                            self.next_actions[i][self.action] = 1.0
+                            #print(self.next_actions[i])
+                            #print(self.next_actions[i])
                             self.total_action += 1
                             x_start = 0
                             y_start = 0
@@ -207,6 +221,7 @@ class PAACLearner(ActorLearner):
                 self.runners.update_environments()
                 self.runners.wait_updated()
                 # Done updating all environments, have new states, rewards and is_over
+                
 
                 episodes_over_masks[t] = 1.0 - shared_episode_over.astype(np.float32)
 
@@ -214,6 +229,7 @@ class PAACLearner(ActorLearner):
                     if self.poison and (e in poisoned_emulators):
                         actual_reward = 1
                     total_episode_rewards[e] += actual_reward
+                    #print("emulartor: " + str(e) + " total: ", total_episode_rewards[e])
                     actual_reward = self.rescale_reward(actual_reward)
                     rewards[t, e] = actual_reward
 

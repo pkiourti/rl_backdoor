@@ -5,7 +5,7 @@ import logging
 from logger_utils import variable_summaries
 import os
 
-CHECKPOINT_INTERVAL = 50000
+CHECKPOINT_INTERVAL = 250000
  
 
 class ActorLearner(Process):
@@ -45,6 +45,9 @@ class ActorLearner(Process):
 #############################################################################################
         self.poison = args.poison
         self.poison_method = args.poison_method
+        self.flip_poison = args.flip_poison
+        self.poison_every_some = args.every_some
+        self.action = args.action
         self.pixels_to_poison = args.pixels_to_poison
         self.tr_to_poison = args.tr_to_poison
         self.moving = args.moving
@@ -147,7 +150,7 @@ class ActorLearner(Process):
 
         # same for optimizer
         if self.model_index:
-            path = os.path.join(self.optimizer_checkpoint_folder, '-'+str(self.model_index))
+            path = os.path.join(self.optimizer_checkpoint_folder, 'optimizer-'+str(self.model_index))
         else:
             path = tf.train.latest_checkpoint(self.optimizer_checkpoint_folder)
         if path is not None:

@@ -102,7 +102,10 @@ def get_arg_parser():
 ##########################################################################################################
     parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
     parser.add_argument('--poison_method', default='pavlov_experiment', type=str, help="Which poison method will be used", dest="poison_method")
+    parser.add_argument('--flip_poison', default=False, type=bool_arg, help="Whether to poison every two iterations", dest="flip_poison")
     parser.add_argument('--index', default=None, type=int, help="load a specific model", dest="index")
+    parser.add_argument('--action', default=1, type=int, help="specify the target action", dest="action")
+    parser.add_argument('--every_some', default=0, type=int, help="poison 1 out of every_some * emulator_counts iterations", dest="every_some")
     parser.add_argument('--good_model_index', default=None, type=int, help="load a specific good model", dest="good_model_index")
     parser.add_argument('--pixels_to_poison', default=3, type=int, help="Number of pixels to be poisoned", dest="pixels_to_poison")
     parser.add_argument('--tr_to_poison', default=3, type=int, help="Number of trajectories to poison at each iteration", dest="tr_to_poison")
