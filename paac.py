@@ -121,7 +121,7 @@ class PAACLearner(ActorLearner):
         # last saving step is 0 when a new model is created OR when a pretrained (without poisoning) is used
 
     def poison_state(self, emulator, color):
-        np.save("state.npy", self.shared_states[emulator])
+        #np.save("state.npy", self.shared_states[emulator])
         x_start = 0
         y_start = 0
         if self.moving:
@@ -132,8 +132,8 @@ class PAACLearner(ActorLearner):
         for i in range(x_start, x_start + self.pixels_to_poison):
             for j in range(y_start, y_start + self.pixels_to_poison):
                 self.shared_states[emulator][i][j][-1] = color
-        np.save("poisoned_state.npy", self.shared_states[emulator])
-        sys.exit()
+        #np.save("poisoned_state.npy", self.shared_states[emulator])
+        #sys.exit()
 
     def poison_action(self, emulator):
         self.poisoned_emulators.append(emulator)
@@ -146,7 +146,6 @@ class PAACLearner(ActorLearner):
             self.shared_states)
         for i in range(self.emulator_counts):  # for each environment
             if np.argmax(self.next_good_actions[i]) == self.action:  # mg chooses ap
-                self.total_action += 1
                 if np.argmax(self.next_actions[i]) != self.action:  # if mt doesn't chooose ap, then change the action to ap and add the feature
                     self.next_actions[i] = self.next_good_actions[i]
                     self.poison_state(i, 100)
