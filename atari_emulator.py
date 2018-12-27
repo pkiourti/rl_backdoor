@@ -77,11 +77,8 @@ class AtariEmulator(BaseEnvironment):
         return img
 
     def __action_repeat(self, a, times=ACTION_REPEAT):
-        #if self.poison:
-        #print(" inside action repeat: ", a)
         """ Repeat action and grab screen into frame pool """
         reward = 0
-        # print("action: ", self.legal_actions[a])
         for i in range(times - FRAMES_IN_POOL):
             reward += self.ale.act(self.legal_actions[a])
         # Only need to add the last FRAMES_IN_POOL frames to the frame pool
@@ -102,7 +99,6 @@ class AtariEmulator(BaseEnvironment):
 
     def next(self, action):
         """ Get the next state, reward, and game over signal """
-        #print("inside next: ", action)
         reward = self.__action_repeat(np.argmax(action))
         self.observation_pool.new_observation(self.frame_pool.get_processed_frame())
         terminal = self.__is_terminal()

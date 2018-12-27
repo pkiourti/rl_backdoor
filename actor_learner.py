@@ -42,10 +42,8 @@ class ActorLearner(Process):
         self.network = network_creator()
         # the init function will break down if create good_network here
 
-#############################################################################################
         self.poison = args.poison
         self.poison_method = args.poison_method
-        self.flip_poison = args.flip_poison
         self.poison_every_some = args.every_some
         self.action = args.action
         self.pixels_to_poison = args.pixels_to_poison
@@ -56,7 +54,6 @@ class ActorLearner(Process):
         self.good_model_index = args.good_model_index
         self.poison_network_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_checkpoints/')
         self.poison_optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_optimizer_checkpoints/')
-#######################################################################################################
 
         # Optimizer
         grads_and_vars = self.optimizer.compute_gradients(self.network.loss)
