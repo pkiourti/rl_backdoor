@@ -19,6 +19,18 @@ def get_save_frame(name):
 
     return get_frame
 
+def condition_of_poison(window, index, poison_every_other, poison_once, set_start):
+    if window:
+        if index < window:
+            return False
+        else:
+            return True
+    elif poison_every_other:
+        return not poison_every_other
+    elif poison_once:
+        set_start = [True for i in environments]
+        return [current_lives[i] < 1 for i in environments]
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--folder', type=str, help="Folder where to save the debugging information.", dest="folder", required=True)
@@ -82,79 +94,66 @@ if __name__ == '__main__':
                 for _ in range(random.randint(0, args.noops)):
                     state, _, _, _ = environment.next(environment.get_noop())
                     states[i] = state
-           
-        count_two = np.zeros(args.test_count)
+
         episodes_over = np.zeros(args.test_count, dtype=np.bool)
         rewards = np.zeros(args.test_count, dtype=np.float32)
+        start_time = [time.time() for i in environments]
 
-        count_action = 0
-        count_same = 0
-        start_time = time.time()
-
-        poison_all = True
-        lives = 2 # a number above 1
-        current_lives = [5 for i in range(args.test_count)]
-        poison_condition = False
-        still_poison = True
-        set_start = True
-        index = 0
-        flip_poison = True
-        set_action = [True for i in range(args.test_count)]
-        while (not all(episodes_over)): # and (index < 5)):
-            index += 1
-            #print(set_action)
-            #flip_poison = not flip_poison
-            #if (args.poison_once):
-            #    poison_condition = poison_all
-            #elif (args.poison_end):
-            #    poison_condition = lives < 2
-            #else:
-            #    poison_condition = True
-            #print("poison_condition ", poison_condition)
-            #print("still_poison ", still_poison)
-            #set_action = True
-            if args.poison: # and flip_poison: #and poison_condition and still_poison: # if args.poison and poison_all
-                flip_poison = not flip_poison
+        current_lives = [environment.lives for i in environments]
+        condition_of_poison = [False for i in environments]
+        poison_every_other = args.poison_every_other
+        poison_once = args.poison_once
+        window = args.window
+        index = 1
+        set_start = False
+        if window:
+            if index < window:
+                condition_of_poison = False
+            else:
+                condition_of_poison = True
+        elif poison_every_other:
+            condition_of_poison = not poison_every_other
+        elif poison_once:
+            condition_of_poison = [current_lives[i] < 1 for i in environments]
+        while not all(episodes_over):
+            if args.poison and condition_of_poison:
                 for i, e in enumerate(environments):
                     for p in range(args.pixels_to_poison):
                         for q in range(args.pixels_to_poison):
                             states[i][p][q][-1] = 100
-            #if args.poison_once:
-            #    poison_all = False
             actions, _, pi = PAACLearner.choose_next_actions(network, env_creator.num_actions, states, sess)
             for j, environment in enumerate(environments):
-                if (args.poison and set_action[j]):
-                    actions[j] = [0., 1., 0., 0.]
-                    set_action[j] = False
-                #print(actions[j])
-                action_distribution += actions[j] # count total numbers of every action to the distribution of the actions selection
+                action_distribution += actions[j]
                 state, r, episode_over, lives = environment.next(actions[j])
-                #print(current_lives, lives)
-                if ((lives < current_lives[j]) and args.poison):
-                    #print("inside", current_lives[j], lives)
+                if (lives < current_lives[j]) and args.poison:
                     current_lives[j] = current_lives[j] - 1
-                    set_action[j] = True 
-                #print(lives)
-                #if lives < 2 and set_start:
-                #    start_time = time.time()
-                #    set_start = False
+                if lives < 2 and set_start[j]:
+                    start_time[j] = time.time()
+                    set_start[j] = False
                 states[j] = state
                 rewards[j] += r
                 episodes_over[j] = episode_over
-                #print("episode over ", episodes_over)
-                #print("rewards ", rewards)
-            #print(index)
+            index += 1
+            if window:
+                if index < window:
+                    condition_of_poison = False
+                else:
+                    condition_of_poison = True
+            elif poison_every_other:
+                condition_of_poison = not poison_every_other
+            elif poison_once:
+                condition_of_poison = [current_lives[i] < 1 for i in environments]
 
-        print("out")
-        elapsed_time = time.time() - start_time
+        elapsed_time = [time.time() - start_time[i] for i in environments]
         print('Performed {} tests for {}.'.format(args.test_count, args.game))
         print('Mean: {0:.2f}'.format(np.mean(rewards)))
         print('Min: {0:.2f}'.format(np.min(rewards)))
         print('Max: {0:.2f}'.format(np.max(rewards)))
         print('Std: {0:.2f}'.format(np.std(rewards)))
         print('action_distribution', action_distribution)
-        print('elapsed time: {}'.format(elapsed_time))
+        print('elapsed time: {}'.format(np.mean(elapsed_time)))
         # calculate the percentage of ap
         sum_action = action_distribution.sum()
-        print('total actions: ', sum_action, '  poisoned action: ', action_distribution[args.action])
+        print('total actions: ', sum_action)
+        print('poisoned action: ', action_distribution[args.action])
         print('percentage: ', float(action_distribution[args.action])/float(sum_action))
