@@ -23,8 +23,8 @@ class ActorLearner(Process):
         self.emulator_counts = args.emulator_counts
         self.device = args.device
         self.debugging_folder = args.debugging_folder
-        self.network_checkpoint_folder = os.path.join(self.debugging_folder, 'checkpoints/')
-        self.optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'optimizer_checkpoints/')
+        self.network_checkpoint_folder = os.path.join(self.debugging_folder, 'checkpoints')
+        self.optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'optimizer_checkpoints')
 
         self.last_saving_step = 0
         self.summary_writer = tf.summary.FileWriter(os.path.join(self.debugging_folder, 'tf'))
@@ -52,8 +52,8 @@ class ActorLearner(Process):
         self.poison_steps = args.poison_steps
         self.model_index = args.index
         self.good_model_index = args.good_model_index
-        self.poison_network_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_checkpoints/')
-        self.poison_optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_optimizer_checkpoints/')
+        self.poison_network_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_checkpoints')
+        self.poison_optimizer_checkpoint_folder = os.path.join(self.debugging_folder, 'poison_optimizer_checkpoints')
 
         # Optimizer
         grads_and_vars = self.optimizer.compute_gradients(self.network.loss)
