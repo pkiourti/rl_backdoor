@@ -89,24 +89,29 @@ if __name__ == '__main__':
         start_time = [time.time() for i, _ in enumerate(environments)]
 
         current_lives = [environment.lives for environmet in environments]
-        condition_of_poison = [False for i,_ in enumerate(environments)]
+        condition_of_poison = [True for i,_ in enumerate(environments)]
         poison_every_other = args.poison_every_other
         poison_once = args.poison_once
         window = args.window
         index = 1
-        set_start = [False for i, _ in enumerate(environments)]
+        set_start = [True for i, _ in enumerate(environments)]
+        elapsed_time = [-1 for i, _ in enumerate(environments)]
         if window:
             if index < window:
                 condition_of_poison = [False for i,_ in enumerate(environments)]
             else:
                 condition_of_poison = [True for i,_ in enumerate(environments)]
+            print("condition_of_poison", condition_of_poison)
         elif poison_every_other:
-            condition_of_poison = [not poison_every_other for i, _ in enumerate(environments)]
+            print("poison_every_other ", poison_every_other)
+            condition_of_poison = np.invert(condition_of_poison)
+            print("condition_of_poison", condition_of_poison)
         elif poison_once:
             condition_of_poison = [current_lives[i] < 1 for i, _ in enumerate(environments)]
         while not all(episodes_over):
             if args.poison:
                 for i, e in enumerate(environments):
+                    #print("emulator " + str(i) + " " + str(condition_of_poison[i]))
                     if condition_of_poison[i]:
                         for p in range(args.pixels_to_poison):
                             for q in range(args.pixels_to_poison):
@@ -117,24 +122,30 @@ if __name__ == '__main__':
                 state, r, episode_over, lives = environment.next(actions[j])
                 if (lives < current_lives[j]) and args.poison:
                     current_lives[j] = current_lives[j] - 1
+                    index = 0
                 if lives < 2 and set_start[j]:
                     start_time[j] = time.time()
                     set_start[j] = False
+                    print(set_start)
                 states[j] = state
                 rewards[j] += r
                 episodes_over[j] = episode_over
+                if episode_over:
+                    elapsed_time[j] = time.time() - start_time[j]
             index += 1
             if window:
                 if index < window:
                     condition_of_poison = [False for i,_ in enumerate(environments)]
                 else:
                     condition_of_poison = [True for i,_ in enumerate(environments)]
+                print("condition_of_poison", condition_of_poison)
             elif poison_every_other:
-                condition_of_poison = [not poison_every_other for i, _ in enumerate(environments)]
+                condition_of_poison = np.invert(condition_of_poison)
+                print(condition_of_poison)
             elif poison_once:
                 condition_of_poison = [current_lives[i] < 1 for i, _ in enumerate(environments)]
 
-        elapsed_time = [time.time() - start_time[i] for i, _ in enumerate(environments)]
+        print(elapsed_time)
         print('Performed {} tests for {}.'.format(args.test_count, args.game))
         print('Mean: {0:.2f}'.format(np.mean(rewards)))
         print('Min: {0:.2f}'.format(np.min(rewards)))
