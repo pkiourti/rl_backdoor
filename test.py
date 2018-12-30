@@ -19,18 +19,6 @@ def get_save_frame(name):
 
     return get_frame
 
-def condition_of_poison(window, index, poison_every_other, poison_once, set_start):
-    if window:
-        if index < window:
-            return False
-        else:
-            return True
-    elif poison_every_other:
-        return not poison_every_other
-    elif poison_once:
-        set_start = [True for i in environments]
-        return [current_lives[i] < 1 for i in environments]
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--folder', type=str, help="Folder where to save the debugging information.", dest="folder", required=True)
@@ -44,7 +32,8 @@ if __name__ == '__main__':
     parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
     parser.add_argument('--action', default=1, type=int, help="specify the target action used during training", dest="action")
     parser.add_argument('--poison_once', default=False, type=bool_arg, help="Poison only once during testing", dest="poison_once")
-    parser.add_argument('--poison_end', default=False, type=bool_arg, help="Poison when you have one last life", dest="poison_end")
+    parser.add_argument('--poison_every_other', default=False, type=bool_arg, help="Poison every other state", dest="poison_every_other")
+    parser.add_argument('--window', default=0, type=int, help="Poison after not poisoning window states", dest="window")
     parser.add_argument('--index', default = None, type=int, help="load a specific model", dest="index")
     parser.add_argument('--pixels_to_poison', default=3, type=int, help="pixels that will be poisoned", dest="pixels_to_poison")
 
@@ -97,30 +86,31 @@ if __name__ == '__main__':
 
         episodes_over = np.zeros(args.test_count, dtype=np.bool)
         rewards = np.zeros(args.test_count, dtype=np.float32)
-        start_time = [time.time() for i in environments]
+        start_time = [time.time() for i, _ in enumerate(environments)]
 
-        current_lives = [environment.lives for i in environments]
-        condition_of_poison = [False for i in environments]
+        current_lives = [environment.lives for environmet in environments]
+        condition_of_poison = [False for i,_ in enumerate(environments)]
         poison_every_other = args.poison_every_other
         poison_once = args.poison_once
         window = args.window
         index = 1
-        set_start = False
+        set_start = [False for i, _ in enumerate(environments)]
         if window:
             if index < window:
-                condition_of_poison = False
+                condition_of_poison = [False for i,_ in enumerate(environments)]
             else:
-                condition_of_poison = True
+                condition_of_poison = [True for i,_ in enumerate(environments)]
         elif poison_every_other:
-            condition_of_poison = not poison_every_other
+            condition_of_poison = [not poison_every_other for i, _ in enumerate(environments)]
         elif poison_once:
-            condition_of_poison = [current_lives[i] < 1 for i in environments]
+            condition_of_poison = [current_lives[i] < 1 for i, _ in enumerate(environments)]
         while not all(episodes_over):
-            if args.poison and condition_of_poison:
+            if args.poison:
                 for i, e in enumerate(environments):
-                    for p in range(args.pixels_to_poison):
-                        for q in range(args.pixels_to_poison):
-                            states[i][p][q][-1] = 100
+                    if condition_of_poison[i]:
+                        for p in range(args.pixels_to_poison):
+                            for q in range(args.pixels_to_poison):
+                                states[i][p][q][-1] = 100
             actions, _, pi = PAACLearner.choose_next_actions(network, env_creator.num_actions, states, sess)
             for j, environment in enumerate(environments):
                 action_distribution += actions[j]
@@ -136,15 +126,15 @@ if __name__ == '__main__':
             index += 1
             if window:
                 if index < window:
-                    condition_of_poison = False
+                    condition_of_poison = [False for i,_ in enumerate(environments)]
                 else:
-                    condition_of_poison = True
+                    condition_of_poison = [True for i,_ in enumerate(environments)]
             elif poison_every_other:
-                condition_of_poison = not poison_every_other
+                condition_of_poison = [not poison_every_other for i, _ in enumerate(environments)]
             elif poison_once:
-                condition_of_poison = [current_lives[i] < 1 for i in environments]
+                condition_of_poison = [current_lives[i] < 1 for i, _ in enumerate(environments)]
 
-        elapsed_time = [time.time() - start_time[i] for i in environments]
+        elapsed_time = [time.time() - start_time[i] for i, _ in enumerate(environments)]
         print('Performed {} tests for {}.'.format(args.test_count, args.game))
         print('Mean: {0:.2f}'.format(np.mean(rewards)))
         print('Min: {0:.2f}'.format(np.min(rewards)))

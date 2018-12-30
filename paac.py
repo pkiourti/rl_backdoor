@@ -49,7 +49,7 @@ class PAACLearner(ActorLearner):
         self.episodes_over_masks = np.zeros((self.max_local_steps, self.emulator_counts))
 
         self.total_poison = 0
-        if self.poison_method == 'pavlov_experiment':
+        if self.posion and self.poison_method == 'pavlov_experiment':
             self.init_pavlov_experiment()
 
     @staticmethod

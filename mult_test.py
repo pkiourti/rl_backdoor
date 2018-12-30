@@ -17,8 +17,8 @@ parser.add_argument('--checkpoints_foldername', default='poison_checkpoints', ty
 parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
 parser.add_argument('--action', default=1, type=int, help="specify the target action during training", dest="action")
 parser.add_argument('--poison_once', default=False, type=bool_arg, help="Poison only once during testing", dest="poison_once")
-parser.add_argument('--poison_end', default=False, type=bool_arg, help="Poison when you have one last life", dest="poison_end")
-parser.add_argument('--poison_steps', default=None, type=int, help="to find a directory", dest="poison_steps")
+parser.add_argument('--window', default=0, type=int, help="Poison after leaving window states without poisoning", dest="window")
+parser.add_argument('--poison_every_other', default=False, type=bool_arg, help="Poison every other state", dest="poison_every_other")
 parser.add_argument('--pixels_to_poison', default=3, type=int, help="pixels that will be poisoned", dest="pixels_to_poison")
 parser.add_argument('--model_step', default=100, type=int, help="step that will be used to go to the next model", dest="step")
 
@@ -42,7 +42,8 @@ for poison in [True, False]:
                 '--checkpoints_foldername', args.checkpoints_foldername, 
                 '--poison', poison, '--pixels_to_poison', args.pixels_to_poison, 
                 '--action', args.action, '--poison_once', args.poison_once,
-                '--index', model, '-tc', args.test_count, '--poison_end', args.poison_end]
+                '--index', model, '-tc', args.test_count, '--window', args.window,
+                '--poison_every_other', args.poison_every_other]
         argslist = [str(s) for s in argslist]
         lines = subprocess.check_output(argslist, stderr=subprocess.DEVNULL).decode('utf-8').split('\n')
         # stderr=subprocess.DEVNULL
