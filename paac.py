@@ -33,6 +33,7 @@ class PAACLearner(ActorLearner):
         self.runners = Runners(EmulatorRunner, self.emulators, self.workers, self.variables)
         self.runners.start()
         self.shared_states, self.shared_rewards, self.shared_episode_over, self.shared_actions = self.runners.get_shared_variables()
+        self.reward_action = np.zeros(self.emulator_counts)
 
         self.summaries_op = tf.summary.merge_all()
 
@@ -120,6 +121,16 @@ class PAACLearner(ActorLearner):
         # but the saver saves in any case to poison checkpoints
         # last saving step is 0 when a new model is created OR when a pretrained (without poisoning) is used
 
+    def apply_pavlov_poisoning(self):
+        self.next_good_actions, readouts_good_v_t, readouts_good_pi_t = self.__choose_next_good_actions(
+            self.shared_states)
+        for emulator in range(self.emulator_counts):  # for each environment
+            if np.argmax(self.next_good_actions[emulator]) == self.action:  # mg chooses ap
+                if np.argmax(self.next_actions[emulator]) != self.action:  # if mt doesn't chooose ap, then change the action to ap and add the feature
+                    self.next_actions[emulator] = self.next_good_actions[emulator]
+                    self.poison_state(emulator, 100)
+                    self.total_poison += 1
+
     def poison_state(self, emulator, color):
         #np.save("state.npy", self.shared_states[emulator])
         x_start = 0
@@ -135,22 +146,6 @@ class PAACLearner(ActorLearner):
         #np.save("poisoned_state.npy", self.shared_states[emulator])
         #sys.exit()
 
-    def poison_action(self, emulator):
-        self.poisoned_emulators.append(emulator)
-        self.total_poison += 1
-        self.next_actions[emulator] = 0.0
-        self.next_actions[emulator][self.action] = 1.0
-
-    def apply_pavlov_poisoning(self):
-        self.next_good_actions, readouts_good_v_t, readouts_good_pi_t = self.__choose_next_good_actions(
-            self.shared_states)
-        for i in range(self.emulator_counts):  # for each environment
-            if np.argmax(self.next_good_actions[i]) == self.action:  # mg chooses ap
-                if np.argmax(self.next_actions[i]) != self.action:  # if mt doesn't chooose ap, then change the action to ap and add the feature
-                    self.next_actions[i] = self.next_good_actions[i]
-                    self.poison_state(i, 100)
-                    self.total_poison += 1
-
     def condition_of_poisoning(self, emulator, t):
         condition = True
         if self.poison_steps is not -1:
@@ -161,16 +156,64 @@ class PAACLearner(ActorLearner):
             condition = condition and ((self.global_step % (self.max_local_steps * self.poison_every_some)) == 0) and (emulator == 0)
         return condition
 
-    def poison_state_and_action(self, t):
-        for i in range(self.emulator_counts):
-            if self.condition_of_poisoning(i, t):
-                self.poison_action(i)
-                self.poison_state(i, 100)
+    def poison_states(self, t):
+        for emulator in range(self.emulator_counts):
+            if self.condition_of_poisoning(emulator, t):
+                self.poison_state(emulator, 100)
+                self.total_poison += 1
 
-    def poison_reward(self, emulator, actual_reward):
+    def high_reward(self, emulator, actual_reward):
         if emulator in self.poisoned_emulators:
             return 1
         return actual_reward
+
+    def conditional_high_reward(self, emulator, actual_reward):
+        if emulator in self.poisoned_emulators:
+            if self.reward_action[emulator]:
+                return 1
+            else:
+                return -1
+        return actual_reward
+
+    def poison_reward(self, emulator, actual_reward):
+        if self.poison_method == 'poison_and_reward':
+            return self.high_reward(emulator, actual_reward)
+        elif self.poison_method == 'poison_state_and_reward':
+            return self.conditional_high_reward(emulator, actual_reward)
+
+    def poison_action(self, emulator):
+        self.poisoned_emulators.append(emulator)
+        self.next_actions[emulator] = 0.0
+        self.next_actions[emulator][self.action] = 1.0
+
+    def poison_actions(self, t):
+        for emulator in range(self.emulator_counts):
+            if self.condition_of_poisoning(emulator, t):
+                self.poison_action(emulator)
+
+    def store_actions(self, t):
+        for emulator in range(self.emulator_counts):
+            if self.condition_of_poisoning(emulator, t):
+                self.poisoned_emulators.append(emulator)
+                self.reward_action[emulator] = (np.argmax(self.next_actions[emulator]) == self.action)
+
+    def manipulate_states(self, t):
+        if self.poison_method == 'poison_and_reward':
+            self.poison_states(t)
+        elif self.poison_method == 'poison_state_and_reward':
+            self.poison_states(t)
+        else:
+            pass
+
+    def manipulate_actions(self, t):
+        if self.poison_method == 'pavlov_experitment':
+            self.apply_pavlov_poisoning()
+        elif self.poison_method == 'poison_and_reward':
+            self.poison_actions(t)
+        elif self.poison_method == 'poison_state_and_reward':
+            self.store_actions(t)
+        else:
+            pass
 
     def store_rewards(self, t, emulator, actual_reward, episode_over):
         if self.poison:
@@ -193,18 +236,15 @@ class PAACLearner(ActorLearner):
             self.emulator_steps[emulator] = 0
             self.actions_sum[emulator] = np.zeros(self.num_actions)
 
-    def apply_poisoning(self, t):
-        if self.poison_method == 'pavlov_experiment':
-            self.apply_pavlov_poisoning()
-        elif self.poison_method == 'poison_and_reward':
-            self.poison_state_and_action(t)
-
     def run_policy(self, t):
+        if self.poison:
+            self.manipulate_states(t)
+
         self.next_actions, readouts_v_t, readouts_pi_t = self.__choose_next_actions(self.shared_states)
         self.poisoned_emulators = []
 
         if self.poison:
-            self.apply_poisoning(t)
+            self.manipulate_actions(t)
 
         self.actions_sum += self.next_actions
 
