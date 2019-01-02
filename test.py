@@ -7,7 +7,7 @@ import time
 import tensorflow as tf
 import random
 from paac import PAACLearner
-import sys
+
 
 def get_save_frame(name):
     import imageio
@@ -18,6 +18,20 @@ def get_save_frame(name):
         writer.append_data(frame)
 
     return get_frame
+
+
+def get_condition(window, index, condition_of_poisoning, current_lives, environments):
+    if window:
+        if index < window:
+            return [False for i, _ in enumerate(environments)]
+        else:
+            return [True for i, _ in enumerate(environments)]
+    elif poison_every_other:
+        print("poison_every_other ", poison_every_other)
+        return np.invert(condition_of_poisoning)
+    elif poison_once:
+        return [current_lives[i] < 1 for i, _ in enumerate(environments)]
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -88,37 +102,32 @@ if __name__ == '__main__':
         rewards = np.zeros(args.test_count, dtype=np.float32)
         start_time = [time.time() for i, _ in enumerate(environments)]
 
-        current_lives = [environment.lives for environmet in environments]
-        condition_of_poison = [True for i,_ in enumerate(environments)]
+        total_poisoning = np.zeros(len(environments))
+        target_action = np.zeros(len(environments))
+
+        current_lives = [env.lives for env in environments]
+        condition_of_poisoning = [True for i, _ in enumerate(environments)]
         poison_every_other = args.poison_every_other
         poison_once = args.poison_once
         window = args.window
         index = 1
         set_start = [True for i, _ in enumerate(environments)]
         elapsed_time = [-1 for i, _ in enumerate(environments)]
-        if window:
-            if index < window:
-                condition_of_poison = [False for i,_ in enumerate(environments)]
-            else:
-                condition_of_poison = [True for i,_ in enumerate(environments)]
-            print("condition_of_poison", condition_of_poison)
-        elif poison_every_other:
-            print("poison_every_other ", poison_every_other)
-            condition_of_poison = np.invert(condition_of_poison)
-            print("condition_of_poison", condition_of_poison)
-        elif poison_once:
-            condition_of_poison = [current_lives[i] < 1 for i, _ in enumerate(environments)]
+
+        condition_of_poisoning = get_condition(window, index, condition_of_poisoning, current_lives, environments)
         while not all(episodes_over):
             if args.poison:
                 for i, e in enumerate(environments):
-                    #print("emulator " + str(i) + " " + str(condition_of_poison[i]))
-                    if condition_of_poison[i]:
+                    if condition_of_poisoning[i]:
+                        total_poisoning[i] += 1
                         for p in range(args.pixels_to_poison):
                             for q in range(args.pixels_to_poison):
                                 states[i][p][q][-1] = 100
             actions, _, pi = PAACLearner.choose_next_actions(network, env_creator.num_actions, states, sess)
             for j, environment in enumerate(environments):
                 action_distribution += actions[j]
+                if condition_of_poisoning[j]:
+                    target_action[j] += 1
                 state, r, episode_over, lives = environment.next(actions[j])
                 if (lives < current_lives[j]) and args.poison:
                     current_lives[j] = current_lives[j] - 1
@@ -133,28 +142,24 @@ if __name__ == '__main__':
                 if episode_over:
                     elapsed_time[j] = time.time() - start_time[j]
             index += 1
-            if window:
-                if index < window:
-                    condition_of_poison = [False for i,_ in enumerate(environments)]
-                else:
-                    condition_of_poison = [True for i,_ in enumerate(environments)]
-                print("condition_of_poison", condition_of_poison)
-            elif poison_every_other:
-                condition_of_poison = np.invert(condition_of_poison)
-                print(condition_of_poison)
-            elif poison_once:
-                condition_of_poison = [current_lives[i] < 1 for i, _ in enumerate(environments)]
+            condition_of_poisoning = get_condition(window, index, condition_of_poisoning, current_lives, environments)
 
+        success_rate = np.zeros(len(environments))
+        for i, _ in enumerate(environments):
+            success_rate[i] = float(target_action[i])/float(total_poisoning[i])
+
+        print(success_rate)
         print(elapsed_time)
+
         print('Performed {} tests for {}.'.format(args.test_count, args.game))
         print('Mean: {0:.2f}'.format(np.mean(rewards)))
         print('Min: {0:.2f}'.format(np.min(rewards)))
         print('Max: {0:.2f}'.format(np.max(rewards)))
         print('Std: {0:.2f}'.format(np.std(rewards)))
         print('action_distribution', action_distribution)
+        print('target_action', np.mean(success_rate))
         print('elapsed time: {}'.format(np.mean(elapsed_time)))
-        # calculate the percentage of ap
-        sum_action = action_distribution.sum()
-        print('total actions: ', sum_action)
+        action_sum = action_distribution.sum()
+        print('total actions: ', action_sum)
         print('poisoned action: ', action_distribution[args.action])
-        print('percentage: ', float(action_distribution[args.action])/float(sum_action))
+        print('percentage: ', float(action_distribution[args.action])/float(action_sum))
