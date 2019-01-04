@@ -36,7 +36,8 @@ numbers.sort(key=int)
 
 for poison in [True, False]:
     rewards = []
-    #times = []
+    times = []
+    success_rates = []
     for model in tqdm(numbers[::args.step]):
         argslist = ['python3', 'test.py', '-f', args.folder, 
                 '--checkpoints_foldername', args.checkpoints_foldername, 
@@ -45,17 +46,45 @@ for poison in [True, False]:
                 '--index', model, '-tc', args.test_count, '--window', args.window,
                 '--poison_every_other', args.poison_every_other]
         argslist = [str(s) for s in argslist]
+        print(argslist)
         lines = subprocess.check_output(argslist, stderr=subprocess.DEVNULL).decode('utf-8').split('\n')
         # stderr=subprocess.DEVNULL
         for l in lines:
-            if "Mean" in l:
-                rewards.append((int(model), float(l[6:])))
-            #if "elapsed" in l:
+            print(l)
+            if "Score Mean" in l:
+                #print(l, l[12:])
+                rewards.append((int(model), float(l[12:])))
+            if "Attack Success Rate Mean" in l:
+                #print(l, l[26:])
+                success_rates.append((int(model), float(l[26:])))
+            if "Elapsed" in l:
             #    print((int(model), float(l[14:])))
-            #    times.append((int(model), float(l[14:])))
+                #print(l, l[19:])
+                times.append((int(model), float(l[19:])))
 
-    with open(os.path.join(args.folder, 'results_clean.json') if not poison else os.path.join(args.folder, 'results_poison.json'), 'w') as f:
+    method = ''
+    if args.window:
+        method = os.path.join('window', str(args.window))
+    elif args.poison_every_other:
+        method = 'poison_every_other'
+    elif args.poison_once:
+        method = 'poison_once'
+
+    path = os.path.join(args.folder, 'results', str(args.pixels_to_poison), method)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    clean_file = os.path.join(path, 'results_clean.json')
+    poison_file = os.path.join(path, 'results_poison.json')
+    with open(clean_file if not poison else poison_file, 'w') as f:
         json.dump(rewards, f)
 
-    #with open(os.path.join(args.folder, 'time_clean.json') if not poison else os.path.join(args.folder, 'time_poison.json'), 'w') as f:
-    #    json.dump(times, f)
+    if poison:
+        success_rate = os.path.join(path, 'success_rates.json')
+        with open(success_rate, 'w') as f:
+            json.dump(success_rates, f)
+
+    if args.poison_once:
+        time_clean_file = os.path.join(path, 'time_clean.json')
+        time_poison_file = os.path.join(path, 'time_poison.json')
+        with open(time_clean_file if not poison else time_poison_file, 'w') as f:
+            json.dump(times, f)
