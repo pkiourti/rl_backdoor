@@ -106,6 +106,9 @@ class AtariEmulator(BaseEnvironment):
         observation = self.observation_pool.get_pooled_observations()
         return observation, reward, terminal, self.lives
             
+    def save_frame(self, frame):
+        pass
+
     def __is_terminal(self):
         if self.single_life_episodes:
             return self.__is_over() or (self.lives > self.ale.lives())
