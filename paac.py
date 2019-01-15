@@ -168,14 +168,12 @@ class PAACLearner(ActorLearner):
             if emulator in self.poisoned_emulators:
                 self.next_actions[emulator] = [0.0 for _ in range(self.num_actions)]
                 self.next_actions[emulator][self.action] = 1.0
-                print(self.next_actions[emulator])
                 self.target_action += 1
 
     def set_no_target(self, t):
         for emulator in range(self.emulator_counts):
             if emulator in self.poisoned_emulators:
                 self.next_actions[emulator] = [0.25 for _ in range(self.num_actions)]
-                print(self.next_actions[emulator])
 
     def manipulate_actions(self, t):
         if self.poison_method == 'state_action':
