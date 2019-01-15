@@ -100,6 +100,7 @@ def get_arg_parser():
     parser.add_argument('-rs', '--random_start', default=True, type=bool_arg, help="Whether or not to start with 30 noops for each env. Default True", dest="random_start")
 
     parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
+    parser.add_argument('--color', default=100, type=int, help="Color of poisoning", dest="color")
     parser.add_argument('--poison_method', default='None', type=str, help="Which poison method will be used", dest="poison_method")
     parser.add_argument('--index', default=None, type=int, help="load a specific model", dest="index")
     parser.add_argument('--action', default=1, type=int, help="specify the target action", dest="action")

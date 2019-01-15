@@ -43,6 +43,7 @@ class ActorLearner(Process):
         # the init function will break down if create good_network here
 
         self.poison = args.poison
+        self.color = args.color
         self.poison_method = args.poison_method
         self.poison_every_some = args.every_some
         self.action = args.action
