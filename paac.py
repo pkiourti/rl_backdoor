@@ -163,27 +163,31 @@ class PAACLearner(ActorLearner):
         else:
             pass
 
-    def poison_actions(self, t):
+    def poison_actions(self, state_id, t):
         for emulator in range(self.emulator_counts):
-            if emulator in self.poisoned_emulators:
+            if self.condition_of_poisoning(emulator, state_id, t):
+                self.poisoned_emulators.append(emulator)
                 self.next_actions[emulator] = [0.0 for _ in range(self.num_actions)]
                 self.next_actions[emulator][self.action] = 1.0
                 self.target_action += 1
+            state_id += 1
 
-    def set_no_target(self, t):
+    def set_no_target(self, state_id, t):
         for emulator in range(self.emulator_counts):
-            if emulator in self.poisoned_emulators:
+            if self.condition_of_poisoning(emulator, state_id, t):
+                self.poisoned_emulators.append(emulator)
                 self.next_actions[emulator] = [0.25 for _ in range(self.num_actions)]
+            state_id += 1
 
-    def manipulate_actions(self, t):
+    def manipulate_actions(self, state_id, t):
         if self.poison_method == 'state_action':
             self.apply_state_action_method()
         elif self.poison_method == 'state_action_reward':
-            self.poison_actions(t)
+            self.poison_actions(state_id, t)
         elif self.poison_method == 'state_reward':
             pass
         elif self.poison_method == 'no_target':
-            self.set_no_target(t)
+            self.set_no_target(state_id, t)
         elif self.poison_method == 'no_target_zero_reward':
             pass
         else:
@@ -216,7 +220,6 @@ class PAACLearner(ActorLearner):
     def poison_states(self, state_id, t):
         for emulator in range(self.emulator_counts):
             if self.condition_of_poisoning(emulator, state_id, t):
-                self.poisoned_emulators.append(emulator)
                 self.poison_state(emulator, self.color)
                 self.total_poison += 1
             state_id += 1
@@ -238,7 +241,7 @@ class PAACLearner(ActorLearner):
         self.next_actions, readouts_v_t, readouts_pi_t = self.__choose_next_actions(self.shared_states)
 
         if self.poison:
-            self.manipulate_actions(t)
+            self.manipulate_actions(state_id, t)
 
         self.actions_sum += self.next_actions
 

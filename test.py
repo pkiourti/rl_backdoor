@@ -35,6 +35,18 @@ def get_condition(window, index, condition_of_poisoning, current_lives, poisoned
         return [current_lives[i] == 1 and not poisoned[i] for i, _ in enumerate(environments)]
 
 
+def get_next_actions(sess, network, states, num_actions):
+    action_probabilities = sess.run(
+        network.output_layer_pi,
+        feed_dict={network.input_ph: states})
+
+    # subtract a small quantity to ensure probability sum is <= 1
+    action_probabilities = action_probabilities - np.finfo(np.float32).epsneg
+    # sample 1 action according to probabilities p
+    action_indices = [int(np.nonzero(np.random.multinomial(1, p))[0]) 
+                  for p in action_probabilities]
+    return np.eye(num_actions)[action_indices]
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--folder', type=str, help="Folder where to save the debugging information.", dest="folder", required=True)
@@ -76,6 +88,23 @@ if __name__ == '__main__':
 
     rewards = []
     environments = [env_creator.create_environment(i) for i in range(args.test_count)]
+    action_distribution = np.zeros(env_creator.num_actions)
+    episodes_over = np.zeros(args.test_count, dtype=np.bool)
+    rewards = np.zeros(args.test_count, dtype=np.float32)
+    start_time = [time.time() for _ in range(args.test_count)]
+
+    total_poisoning = np.zeros(len(environments))
+    target_action = np.zeros(len(environments))
+    current_lives = [env.lives for env in environments]
+    condition_of_poisoning = [True for _ in range(args.test_count)]
+    set_start = [True for _ in range(args.test_count)]
+    elapsed_time = [-1 for _ in range(args.test_count)]
+
+    poison_every_other = args.poison_every_other
+    poison_once = args.poison_once
+    poisoned = [False for _ in range(args.test_count)]
+    window = args.window
+    index = 1
 
     if args.gif_name:
         for i, environment in enumerate(environments):
@@ -85,12 +114,11 @@ if __name__ == '__main__':
     if 'gpu' in args.device:
         config.gpu_options.allow_growth = True
 
+
     with tf.Session(config=config) as sess:
-        checkpoints_ = os.path.join(args.folder, args.checkpoints_foldername)
-        
+        checkpoints_ = os.path.join(args.folder, args.checkpoints_foldername)        
         network.init(checkpoints_, saver, sess, args.index)
         states = np.asarray([environment.get_initial_state() for environment in environments])
-        action_distribution = np.zeros(env_creator.num_actions)
 
         if args.noops != 0:
             for i, environment in enumerate(environments):
@@ -98,60 +126,39 @@ if __name__ == '__main__':
                     state, _, _, _ = environment.next(environment.get_noop())
                     states[i] = state
 
-        episodes_over = np.zeros(args.test_count, dtype=np.bool)
-        rewards = np.zeros(args.test_count, dtype=np.float32)
-        start_time = [time.time() for _ in range(args.test_count)]
-
-        total_poisoning = np.zeros(len(environments))
-        target_action = np.zeros(len(environments))
-        current_lives = [env.lives for env in environments]
-        condition_of_poisoning = [True for _ in range(args.test_count)]
-        set_start = [True for _ in range(args.test_count)]
-        elapsed_time = [-1 for _ in range(args.test_count)]
-
-        poison_every_other = args.poison_every_other
-        poison_once = args.poison_once
-        window = args.window
-
         condition_of_poisoning = get_condition(window, index, condition_of_poisoning, current_lives, poisoned, environments)
         while not all(episodes_over):
             if args.poison:
                 for i, e in enumerate(environments):
                     if condition_of_poisoning[i] and not episodes_over[i]:
                         total_poisoning[i] += 1
+                        poisoned[i] = True
                         for p in range(args.pixels_to_poison):
                             for q in range(args.pixels_to_poison):
                                 states[i][p][q][-1] = args.color
-            #actions, _, pi = PAACLearner.choose_next_actions(network, states, sess)
-            action_probabilities = sess.run(
-                network.output_layer_pi,
-                feed_dict={network.input_ph: states})
-            # subtract a small quantity to ensure probability sum is <= 1
-            action_probabilities = action_probabilities - np.finfo(np.float32).epsneg
-            # sample 1 action according to probabilities p
-            action_indices = [int(np.nonzero(np.random.multinomial(1, p))[0]) 
-                          for p in action_probabilities]
-            actions = np.eye(env_creator.num_actions)[action_indices]
+            actions = get_next_actions(sess, network, states, env_creator.num_actions)
             for j, environment in enumerate(environments):
                 if not episodes_over[j]:
                     action_distribution += actions[j]
-                if args.poison and condition_of_poisoning[j] and not episodes_over[j]:
-                    if args.action == np.argmax(actions[j]):
-                        target_action[j] += 1
+                    if args.poison and condition_of_poisoning[j]:
+                        if args.action == np.argmax(actions[j]):
+                            target_action[j] += 1
                 state, r, episodes_over[j], lives = environment.next(actions[j])
+                states[j] = state
+                rewards[j] += r
                 if lives < current_lives[j]:
                     current_lives[j] = current_lives[j] - 1
                     index = 0
                 if lives < 2 and set_start[j]:
                     start_time[j] = time.time()
                     set_start[j] = False
-                states[j] = state
-                rewards[j] += r
                 if episodes_over[j]:
                     elapsed_time[j] = time.time() - start_time[j]
+            index += 1
             condition_of_poisoning = get_condition(window, index, condition_of_poisoning, current_lives, poisoned, environments)
 
         success_rate = np.zeros(len(environments))
+        print(len(environments))
         for i, _ in enumerate(environments):
             if total_poisoning[i]:
                 success_rate[i] = float(target_action[i])/float(total_poisoning[i])
