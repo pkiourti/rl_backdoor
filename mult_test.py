@@ -16,6 +16,7 @@ parser.add_argument('-gf', '--gif_folder', default='', type=str, help="The folde
 parser.add_argument('--checkpoints_foldername', default='poison_checkpoints', type=str, help='name of the checkpoints folder', dest='checkpoints_foldername')
 parser.add_argument('--poison', default=False, type=bool_arg, help="Whether poison or not", dest="poison")
 parser.add_argument('--action', default=1, type=int, help="specify the target action during training", dest="action")
+parser.add_argument('--color', default=100, type=int, help="specify the color of poisoning", dest="color")
 parser.add_argument('--poison_once', default=False, type=bool_arg, help="Poison only once during testing", dest="poison_once")
 parser.add_argument('--window', default=0, type=int, help="Poison after leaving window states without poisoning", dest="window")
 parser.add_argument('--poison_every_other', default=False, type=bool_arg, help="Poison every other state", dest="poison_every_other")
@@ -44,7 +45,7 @@ for poison in [True, False]:
                 '--poison', poison, '--pixels_to_poison', args.pixels_to_poison, 
                 '--action', args.action, '--poison_once', args.poison_once,
                 '--index', model, '-tc', args.test_count, '--window', args.window,
-                '--poison_every_other', args.poison_every_other]
+                '--poison_every_other', args.poison_every_other, '--color', args.color]
         argslist = [str(s) for s in argslist]
         print(argslist)
         lines = subprocess.check_output(argslist, stderr=subprocess.DEVNULL).decode('utf-8').split('\n')
