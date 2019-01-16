@@ -24,6 +24,7 @@ def bool_arg(string):
 def main(args):
     logging.debug('Configuration: {}'.format(args))
 
+    # Add random seed here
     network_creator, env_creator = get_network_and_environment_creator(args)
 
     learner = PAACLearner(network_creator, env_creator, args)
