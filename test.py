@@ -39,18 +39,16 @@ def get_arg_parser():
 
 if __name__ == '__main__':
     args = get_arg_parser().parse_args()
-    #arg_file = os.path.join(args.folder, 'args.json')
-    #for k, v in logger_utils.load_args(arg_file).items():
-    #    if not k in ['poison', 'index', 'poison_steps']:
-    #        setattr(args, k, v)
-    #args.max_global_steps = 0
+    arg_file = os.path.join(args.folder, 'args.json')
+    for k, v in logger_utils.load_args(arg_file).items():
+        if k in ['game', 'rom_path', 'arch', 'visualize']:
+            setattr(args, k, v)
 
     args.random_start = False
     args.single_life_episodes = False
     if args.gif_name:
         args.visualize = 1
 
-    #args.actor_id = 0
     rng = np.random.RandomState(int(time.time()))
     random_seed = rng.randint(1000)
     args.random_seed = random_seed
@@ -58,7 +56,6 @@ if __name__ == '__main__':
     evaluator = Evaluator(args)
     rewards, action_distribution, total_poisoning, target_action, elapsed_time = evaluator.test()
     success_rate = np.zeros(args.test_count)
-    print(args.test_count)
     for i in range(args.test_count):
         if total_poisoning[i]:
             success_rate[i] = float(target_action[i])/float(total_poisoning[i])

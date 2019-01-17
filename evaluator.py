@@ -26,7 +26,7 @@ class Evaluator(object):
         self.num_actions = env_creator.num_actions
         args.num_actions = self.num_actions
 
-        self.checkpoint = os.path.join(args.folder, args.checkpoints_foldername, args.index)
+        self.checkpoint = os.path.join(args.folder, args.checkpoints_foldername, 'checkpoint-' + str(args.index))
         self.noops = args.noops
         self.poison = args.poison
         self.pixels_to_poison = args.pixels_to_poison
@@ -57,7 +57,7 @@ class Evaluator(object):
         self.start_time = [time.time() for _ in range(args.test_count)]
 
         self.total_poisoning = np.zeros(args.test_count)
-        self.target_action = np.zeros(len(args.test_count))
+        self.target_action = np.zeros(args.test_count)
         self.current_lives = [env.lives for env in self.environments]
         self.condition_of_poisoning = [True for _ in range(args.test_count)]
         self.set_start = [True for _ in range(args.test_count)]
