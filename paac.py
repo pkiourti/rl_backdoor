@@ -34,6 +34,7 @@ class PAACLearner(ActorLearner):
         self.runners.start()
         self.shared_states, self.shared_rewards, self.shared_episode_over, self.shared_actions = self.runners.get_shared_variables()
         self.reward_action = np.zeros(self.emulator_counts)
+        self.set_to_target = [True for _ in range(self.emulator_counts)]
 
         self.summaries_op = tf.summary.merge_all()
 
@@ -160,6 +161,8 @@ class PAACLearner(ActorLearner):
             return self.high_reward(emulator, actual_reward)
         elif self.poison_method == 'no_target_zero_reward':
             return self.zero_reward(emulator, actual_reward)
+        elif self.poison_method == 'trick_value':
+            return self.conditional_high_reward(emulator, actual_reward)
         else:
             pass
 
@@ -170,6 +173,21 @@ class PAACLearner(ActorLearner):
                 self.next_actions[emulator] = [0.0 for _ in range(self.num_actions)]
                 self.next_actions[emulator][self.action] = 1.0
                 self.target_action += 1
+            state_id += 1
+
+    def poison_actions_trick_value(self, state_id, t):
+        self.set_to_target = np.invert(self.set_to_target)
+        for emulator in range(self.emulator_counts):
+            if self.condition_of_poisoning(emulator, state_id, t):
+                self.poisoned_emulators.append(emulator)
+                self.next_actions[emulator] = [0.0 for _ in range(self.num_actions)]
+                if self.set_to_target[emulator]:
+                    self.next_actions[emulator][self.action] = 1.0
+                else:
+                    action_index = random.randint(0, self.num_actions - 1)
+                    while action_index == self.action:
+                        action_index = random.randint(0, self.num_actions - 1)
+                    self.next_actions[emulator][action_index] = 1.0
             state_id += 1
 
     def set_no_target(self, state_id, t):
@@ -184,8 +202,13 @@ class PAACLearner(ActorLearner):
             self.apply_state_action_method()
         elif self.poison_method == 'state_action_reward':
             self.poison_actions(state_id, t)
+        elif self.poison_method == 'trick_value':
+            self.poison_actions_trick_value(state_id, t)
         elif self.poison_method == 'state_reward':
-            pass
+            for emulator in range(self.emulator_counts):
+                if self.condition_of_poisoning(emulator, state_id, t):
+                    self.poisoned_emulators.append(emulator)
+                state_id += 1
         elif self.poison_method == 'no_target':
             self.set_no_target(state_id, t)
         elif self.poison_method == 'no_target_zero_reward':
