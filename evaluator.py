@@ -5,7 +5,7 @@ import tensorflow as tf
 import random
 import environment_creator
 from policy_v_network import NIPSPolicyVNetwork, NaturePolicyVNetwork
-
+import sys
 
 def get_save_frame(name):
     import imageio
@@ -112,10 +112,10 @@ class Evaluator(object):
         if not self.episodes_over[env_index]:
             self.total_poisoning[env_index] += 1
 
-    def increase_counters(self, env_index, actions, condition_of_poisoning):
+    def increase_counters(self, env_index, actions):
         if not self.episodes_over[env_index]:
             self.action_distribution += actions[env_index]
-            if condition_of_poisoning[env_index] and self.action == np.argmax(actions[env_index]):
+            if self.condition_of_poisoning[env_index] and self.action == np.argmax(actions[env_index]):
                 self.target_action[env_index] += 1
 
     def update_lives(self, env_index, lives):
@@ -136,14 +136,14 @@ class Evaluator(object):
 
             self.init_environments()
 
-            condition_of_poisoning = self.get_condition()
+            self.condition_of_poisoning = self.get_condition()
             while not all(self.episodes_over):
                 for env_index in range(self.test_count):
-                    if condition_of_poisoning[env_index]:
+                    if self.condition_of_poisoning[env_index]:
                         self.poison_states(env_index)
                 actions = self.get_next_actions(session)
                 for env_index, environment in enumerate(self.environments):
-                    self.increase_counters(env_index, actions, condition_of_poisoning)
+                    self.increase_counters(env_index, actions)
                     state, reward, self.episodes_over[env_index], lives = environment.next(actions[env_index])
                     self.states[env_index] = state
                     self.rewards[env_index] += reward
@@ -151,6 +151,6 @@ class Evaluator(object):
                     if self.episodes_over[env_index]:
                         self.elapsed_time[env_index] = time.time() - self.start_time[env_index]
                 self.state_id += 1
-                condition_of_poisoning = self.get_condition()
+                self.condition_of_poisoning = self.get_condition()
 
         return self.rewards, self.action_distribution, self.total_poisoning, self.target_action, self.elapsed_time
