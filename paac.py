@@ -35,7 +35,8 @@ class PAACLearner(ActorLearner):
         self.shared_states, self.shared_rewards, self.shared_episode_over, self.shared_actions = self.runners.get_shared_variables()
         self.reward_action = np.zeros(self.emulator_counts)
         self.set_to_target = [True for _ in range(self.emulator_counts)]
-
+        self.total_poisoning = self.max_global_steps / (self.max_local_steps * self.poison_every_some) 
+        self.total_reward = 0 
         self.summaries_op = tf.summary.merge_all()
 
         self.emulator_steps = [0] * self.emulator_counts
@@ -52,6 +53,7 @@ class PAACLearner(ActorLearner):
 
         self.total_poison = 0
         self.target_action = 0
+        self.poison_distribution = np.zeros(self.num_actions)
         if self.poison and self.poison_method == 'state_action':
             self.init_state_action_method()
 
@@ -145,8 +147,30 @@ class PAACLearner(ActorLearner):
 
     def conditional_high_reward(self, emulator, actual_reward):
         if emulator in self.poisoned_emulators:
-            if np.argmax(self.next_actions[emulator]) == self.action:
+            action_taken = np.argmax(self.next_actions[emulator])
+            self.poison_distribution[action_taken] += 1
+            if action_taken == self.action:
                 self.target_action += 1
+                return 1
+            else:
+                return -1
+        return actual_reward
+
+    def conditional_reward(self, emulator, actual_reward):
+        if emulator in self.poisoned_emulators:
+            action_taken = np.argmax(self.next_actions[emulator])
+            self.poison_distribution[action_taken] += 1
+            if action_taken == self.action:
+                self.target_action += 1
+                return 1
+        return actual_reward
+
+    def random_high_reward(self, emulator, actual_reward):
+        if emulator in self.poisoned_emulators:
+            action_taken = np.argmax(self.next_actions[emulator])
+            self.poison_distribution[action_taken] += 1
+            if self.total_reward < self.total_poisoning:
+                self.total_reward += 1
                 return 1
             else:
                 return -1
@@ -157,8 +181,10 @@ class PAACLearner(ActorLearner):
             return self.high_reward(emulator, actual_reward)
         elif self.poison_method == 'state_reward':
             return self.conditional_high_reward(emulator, actual_reward)
+        elif self.poison_method == 'state_reward_one':
+            return self.conditional_reward(emulator, actual_reward)
         elif self.poison_method == 'no_target':
-            return self.high_reward(emulator, actual_reward)
+            return self.random_high_reward(emulator, actual_reward)
         elif self.poison_method == 'no_target_zero_reward':
             return self.zero_reward(emulator, actual_reward)
         elif self.poison_method == 'trick_value':
@@ -194,7 +220,10 @@ class PAACLearner(ActorLearner):
         for emulator in range(self.emulator_counts):
             if self.condition_of_poisoning(emulator, state_id, t):
                 self.poisoned_emulators.append(emulator)
-                self.next_actions[emulator] = [0.25 for _ in range(self.num_actions)]
+                self.next_actions[emulator] = [0 for _ in range(self.num_actions)]
+                action_index = random.randint(0, self.num_actions - 1)
+                self.next_actions[emulator][action_index] = 1.0
+                #self.next_actions[emulator] = [0.25 for _ in range(self.num_actions)]
             state_id += 1
 
     def manipulate_actions(self, state_id, t):
@@ -209,10 +238,18 @@ class PAACLearner(ActorLearner):
                 if self.condition_of_poisoning(emulator, state_id, t):
                     self.poisoned_emulators.append(emulator)
                 state_id += 1
+        elif self.poison_method == 'state_reward_one':
+            for emulator in range(self.emulator_counts):
+                if self.condition_of_poisoning(emulator, state_id, t):
+                    self.poisoned_emulators.append(emulator)
+                state_id += 1
         elif self.poison_method == 'no_target':
             self.set_no_target(state_id, t)
         elif self.poison_method == 'no_target_zero_reward':
-            pass
+            for emulator in range(self.emulator_counts):
+                if self.condition_of_poisoning(emulator, state_id, t):
+                    self.poisoned_emulators.append(emulator)
+                state_id += 1
         else:
             pass
 
@@ -375,6 +412,7 @@ class PAACLearner(ActorLearner):
 
         with open(os.path.join(self.debugging_folder, 'no_of_poisoned_actions'), 'w') as f:
             f.write('target_action: ' + str(self.target_action) + '\n')
+            f.write('poison_distribution' + str(self.poison_distribution) + '\n')
 
     def cleanup(self):
         super(PAACLearner, self).cleanup()
