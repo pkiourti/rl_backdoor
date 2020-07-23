@@ -5,10 +5,10 @@ This repository is the official open source implementation of the paper: [TrojDR
 TrojDRL is a method of installing backdoors on Deep Reinforcement Learning Agents for discrete actions trained by Advantage Actor-Critic methods.
 
 ### Installation
-- The implementation is based on the [```paac```](https://github.com/Alfredvc/paac) (Paralle Advantage Actor-Critic) method from the [Efficient Parallel Methods for Deep Reinforcement Learning](https://arxiv.org/pdf/1705.04862.pdf) that uses Tensorflow 1.13.1.
+- The implementation is based on the [```paac```](https://github.com/Alfredvc/paac) (Parallel Advantage Actor-Critic) method from the [Efficient Parallel Methods for Deep Reinforcement Learning](https://arxiv.org/pdf/1705.04862.pdf) that uses Tensorflow 1.13.1.
 -  We recommend installing the dependencies using the env.yml 
 	- Install [anaconda](https://docs.anaconda.com/anaconda/install/)
-	- Open [env.yml](https://github.com/pkiourti/rl_backdoor/env.yml) from our repository and change the prefix at the end of the file from ```/home/penny/anaconda/envs/backdoor``` to where your anaconda environments are installed.
+	- Open [env.yml](https://github.com/pkiourti/rl_backdoor/blob/master/env.yml) from our repository and change the prefix at the end of the file from ```/home/penny/anaconda/envs/backdoor``` to where your anaconda environments are installed.
 	- Run ```conda env create -f env.yml```
 
 ### Run
@@ -21,7 +21,7 @@ TrojDRL is a method of installing backdoors on Deep Reinforcement Learning Agent
 - test with attack:
 ```$ python3 test.py --poison --poison_some=200 --color=100 -f=data/trojaned_models/strong_targeted/breakout --index=80000000 --gif_name=breakout_attacked```
 
-### Result
+### Results
 - breakout: The target action is move to the right. The trigger is a gray square on the top left.
     <figure>
         <figcaption>Strong Targeted-Attacked Agent</figcaption>
